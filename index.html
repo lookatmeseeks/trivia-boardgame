@@ -14,7 +14,7 @@ main{padding:0 clamp(12px,3vw,36px) 30px;display:grid;grid-template-columns:minm
 .board-top{padding:14px 18px;border-bottom:1px solid #30364b;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:800}
 #board{display:block;width:100%;height:auto;min-height:360px;background:radial-gradient(ellipse at center,#20263a,#141824)}
 .edge{stroke:#3c4661;stroke-width:12;stroke-linecap:round;fill:none}.edge-highlight{stroke:#555f7b;stroke-width:3;stroke-linecap:round;fill:none;stroke-dasharray:3 12}
-.tile{fill:#282f45;stroke:#77809e;stroke-width:2}.tile.special{fill:#3e2946;stroke:#ff80bd}.tile.start{fill:#243e48;stroke:#66e3ef}.tile-label{font-size:11px;fill:#cbd2e8;text-anchor:middle;pointer-events:none}.player{stroke:#fff;stroke-width:2.5;filter:drop-shadow(0 2px 3px #0009)}.route-choice{cursor:pointer;fill:#ffd166;stroke:#fff;stroke-width:3}.route-choice:hover{fill:#fff}.route-label{fill:#181a25;font-size:12px;font-weight:900;text-anchor:middle;pointer-events:none}
+.tile{fill:#282f45;stroke:#77809e;stroke-width:2}.tile.special{fill:#3e2946;stroke:#ff80bd}.tile.score-space{fill:#263f36;stroke:#77e0a0}.tile.event-space{fill:#493c24;stroke:#ffd166}.tile.challenge-space{fill:#3c2e50;stroke:#c4a0ff}.tile.start{fill:#243e48;stroke:#66e3ef}.tile-label{font-size:11px;fill:#cbd2e8;text-anchor:middle;pointer-events:none;font-weight:800}.player{stroke:#fff;stroke-width:2.5;filter:drop-shadow(0 2px 3px #0009)}.route-choice{cursor:pointer;fill:#ffd166;stroke:#fff;stroke-width:3}.route-choice:hover{fill:#fff}.route-label{fill:#181a25;font-size:12px;font-weight:900;text-anchor:middle;pointer-events:none}
 .side{padding:18px;display:flex;flex-direction:column;gap:18px}.section-title{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:10px}
 .current{display:flex;align-items:center;gap:12px;padding:13px;background:#22283b;border-radius:12px}.avatar{width:16px;height:16px;border-radius:50%;box-shadow:0 0 0 3px #ffffff18}.current strong{display:block;font-size:17px}.current small{color:var(--muted)}
 .dice-row{display:flex;gap:12px;align-items:center}.die{display:grid;place-items:center;width:66px;height:66px;background:#f5f1ff;color:#232337;border-radius:14px;font-size:32px;font-weight:900;box-shadow:inset 0 -5px #d2cde3;flex-shrink:0}
@@ -26,31 +26,31 @@ button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:11px 14p
 </style>
 </head>
 <body>
-<header><div><div class="brand">ANIME <span>PARTY</span></div><div class="sub">A tiny board-game prototype · Step 1: movement</div></div><div class="eyebrow">Local pass-and-play</div></header>
+<header><div><div class="brand">ANIME <span>PARTY</span></div><div class="sub">A tiny board-game prototype · Step 2: score and board spaces</div></div><div class="eyebrow">Local pass-and-play</div></header>
 <main>
 <section class="board-wrap">
- <div class="board-top"><div><div class="eyebrow">The board</div><strong>Pick a path. Roll the dice. Keep moving.</strong></div><div class="note">Gold circles mark intersections</div></div>
+ <div class="board-top"><div><div class="eyebrow">The board</div><strong>Pick a path. Roll the dice. Keep moving.</strong></div><div class="note">★ Score · ! Event · ? Challenge</div></div>
  <svg id="board" viewBox="0 0 900 600" role="img" aria-label="Board with branching paths and loops"></svg>
 </section>
 <aside class="side">
  <section><div class="section-title">Current turn</div><div class="current"><div class="avatar" id="current-avatar"></div><div><strong id="current-name">Player 1</strong><small id="turn-note">Ready to roll</small></div></div></section>
  <section><div class="section-title">Dice</div><div class="dice-row"><div class="die" id="die">—</div><button class="primary" id="roll">Roll dice</button></div></section>
  <section><div class="section-title">Game status</div><div class="status" id="status" aria-live="polite">Player 1, roll to begin your turn.</div><div id="choices" class="choices" style="margin-top:10px"></div></section>
- <section><div class="section-title">Players</div><div class="players" id="players"></div><button class="secondary" id="reset" style="margin-top:10px">Restart game</button></section>
- <section><div class="section-title">How to play</div><div class="note">Roll a d6 and move one tile at a time. When you reach a junction, choose an available route to continue. The board contains loops, so routes can reconnect. Trivia spaces are placeholders for a later step.</div></section>
+ <section><div class="section-title">Scoreboard</div><div class="players" id="players"></div><button class="secondary" id="reset" style="margin-top:10px">Restart game</button></section>
+ <section><div class="section-title">How to play</div><div class="note">Roll a d6 and move one tile at a time. When you reach a junction, choose an available route to continue. The board contains loops, so routes can reconnect. Landing on ★ awards points. ! triggers a random score event. ? is reserved for future trivia challenges.</div></section>
 </aside>
 </main>
-<footer>Prototype only · No trivia, online multiplayer, or saved game state yet.</footer>
+<footer>Prototype only · Trivia, online multiplayer, and saved game state are not implemented yet.</footer>
 <script>
 const nodes=[
  {id:0,x:90,y:300,label:"START",type:"start"},
- {id:1,x:170,y:300,label:"1"},{id:2,x:250,y:300,label:"2"},{id:3,x:330,y:300,label:"3",type:"special"},
+ {id:1,x:170,y:300,label:"1"},{id:2,x:250,y:300,label:"2"},{id:3,x:330,y:300,label:"★",type:"score"},
  {id:4,x:410,y:300,label:"4"},{id:5,x:490,y:300,label:"5",type:"junction"},
- {id:6,x:570,y:300,label:"6"},{id:7,x:650,y:300,label:"7"},{id:8,x:730,y:300,label:"8",type:"special"},{id:9,x:810,y:300,label:"GOAL"},
- {id:10,x:250,y:190,label:"A"},{id:11,x:330,y:130,label:"B"},{id:12,x:420,y:145,label:"C"},{id:13,x:490,y:220,label:"D",type:"junction"},
+ {id:6,x:570,y:300,label:"6"},{id:7,x:650,y:300,label:"7"},{id:8,x:730,y:300,label:"!",type:"event"},{id:9,x:810,y:300,label:"GOAL"},
+ {id:10,x:250,y:190,label:"A"},{id:11,x:330,y:130,label:"B"},{id:12,x:420,y:145,label:"C"},{id:13,x:490,y:220,label:"?",type:"challenge"},
  {id:14,x:650,y:190,label:"E"},{id:15,x:730,y:125,label:"F"},{id:16,x:810,y:190,label:"G"},
- {id:17,x:250,y:410,label:"H"},{id:18,x:330,y:475,label:"I"},{id:19,x:420,y:460,label:"J"},{id:20,x:490,y:380,label:"K"},
- {id:21,x:650,y:410,label:"L"},{id:22,x:730,y:480,label:"M"},{id:23,x:810,y:410,label:"N"}
+ {id:17,x:250,y:410,label:"H"},{id:18,x:330,y:475,label:"I"},{id:19,x:420,y:460,label:"J"},{id:20,x:490,y:380,label:"★",type:"score"},
+ {id:21,x:650,y:410,label:"L"},{id:22,x:730,y:480,label:"!",type:"event"},{id:23,x:810,y:410,label:"N"}
 ];
 const edges=[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],
  [2,10],[10,11],[11,12],[12,13],[13,5],[13,14],[14,15],[15,16],[16,9],
@@ -58,13 +58,13 @@ const edges=[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],
  [12,14],[18,21],[15,23]];
 const adjacency={};nodes.forEach(n=>adjacency[n.id]=[]);edges.forEach(([a,b])=>{adjacency[a].push(b);adjacency[b].push(a)});
 const colors=["#ff5da8","#66e3ef","#ffd166","#a78bfa"];
-let players=[],current=0,remaining=0,moving=false,turnStarted=false;
+let players=[],current=0,remaining=0,moving=false,turnStarted=false,gameOver=false;
 const svg=document.querySelector("#board"),statusEl=document.querySelector("#status"),choicesEl=document.querySelector("#choices");
 function node(id){return nodes.find(n=>n.id===id)}
 function renderBoard(){
  let s="";
  edges.forEach(([a,b])=>{let A=node(a),B=node(b);s+=`<line class="edge" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"/><line class="edge-highlight" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"/>`});
- nodes.forEach(n=>{const cls=n.type==="special"?"tile special":n.type==="start"?"tile start":"tile";s+=`<g><circle class="${cls}" cx="${n.x}" cy="${n.y}" r="${n.type==="junction"?23:19}"/><text class="tile-label" x="${n.x}" y="${n.y+4}">${n.label}</text></g>`});
+ nodes.forEach(n=>{const cls=n.type==="score"?"tile score-space":n.type==="event"?"tile event-space":n.type==="challenge"?"tile challenge-space":n.type==="special"?"tile special":n.type==="start"?"tile start":"tile";s+=`<g><circle class="${cls}" cx="${n.x}" cy="${n.y}" r="${n.type==="junction"?23:19}"/><text class="tile-label" x="${n.x}" y="${n.y+4}">${n.label}</text></g>`});
  svg.innerHTML=s;renderTokens();
 }
 function renderTokens(){
@@ -81,13 +81,13 @@ function renderTokens(){
 function updateUI(){
  const p=players[current];document.querySelector("#current-name").textContent=p.name;document.querySelector("#current-avatar").style.background=colors[current];document.querySelector("#turn-note").textContent=remaining>0?`${remaining} step${remaining===1?"":"s"} left`:"Ready to roll";
  document.querySelector("#roll").disabled=remaining>0||moving;
- document.querySelector("#players").innerHTML=players.map((p,i)=>`<div class="player-row"><span class="avatar" style="background:${colors[i]}"></span><span class="name">${p.name}${i===current?" · turn":""}</span><small>Tile ${node(p.pos).label}</small></div>`).join("");
+ document.querySelector("#players").innerHTML=players.map((p,i)=>`<div class="player-row"><span class="avatar" style="background:${colors[i]}"></span><span class="name">${p.name}${i===current?" · turn":""}<br><small>Tile ${node(p.pos).label}</small></span><strong>${p.score} pts</strong></div>`).join("");
  renderTokens();
 }
 function setStatus(s){statusEl.textContent=s}
 function startTurn(){remaining=0;moving=false;choicesEl.innerHTML="";document.querySelector("#die").textContent="—";updateUI();setStatus(`${players[current].name}, roll to begin your turn.`)}
 function roll(){
- if(remaining>0||moving)return;remaining=1+Math.floor(Math.random()*6);document.querySelector("#die").textContent=remaining;turnStarted=true;
+ if(remaining>0||moving||gameOver)return;remaining=1+Math.floor(Math.random()*6);document.querySelector("#die").textContent=remaining;turnStarted=true;
  setStatus(`${players[current].name} rolled ${remaining}. Choose a route whenever you reach a junction.`);updateUI();advanceOptions();
 }
 function advanceOptions(){
@@ -108,11 +108,20 @@ function chooseRoute(id){
 }
 function finishTurn(){
  remaining=0;moving=false;choicesEl.innerHTML="";
- const p=players[current];if(p.pos===9){setStatus(`${p.name} reached the goal! Restart to play again.`);document.querySelector("#roll").disabled=true;updateUI();return}
- setStatus(`${p.name} finished their move. Next up: ${players[(current+1)%players.length].name}.`);
- current=(current+1)%players.length;updateUI();document.querySelector("#turn-note").textContent="Ready to roll";
+ const p=players[current],landed=node(p.pos);
+ let result=`${p.name} finished their move on ${landed.label}.`;
+ if(landed.type==="score"){p.score+=2;result+=` +2 points! Total: ${p.score}.`;}
+ else if(landed.type==="event"){
+   const outcomes=[{points:-1,text:"lost 1 point"},{points:1,text:"gained 1 point"},{points:2,text:"gained 2 points"}];
+   const event=outcomes[Math.floor(Math.random()*outcomes.length)];p.score+=event.points;
+   result+=` Random event: ${event.text}. Total: ${p.score}.`;
+ } else if(landed.type==="challenge"){result+=" Challenge space: trivia will be added in a later step. No points awarded yet.";}
+ if(p.pos===9){gameOver=true;setStatus(`${p.name} reached the goal! Final scores: ${players.map(x=>`${x.name} ${x.score}`).join(", ")}. Restart to play again.`);document.querySelector("#roll").disabled=true;updateUI();return}
+ current=(current+1)%players.length;
+ setStatus(`${result} Next up: ${players[current].name}.`);
+ updateUI();document.querySelector("#turn-note").textContent="Ready to roll";
 }
-function resetGame(){players=[{name:"Player 1",pos:0,previous:null},{name:"Player 2",pos:0,previous:null},{name:"Player 3",pos:0,previous:null},{name:"Player 4",pos:0,previous:null}];current=0;remaining=0;moving=false;document.querySelector("#die").textContent="—";renderBoard();startTurn()}
+function resetGame(){players=[{name:"Player 1",pos:0,previous:null,score:0},{name:"Player 2",pos:0,previous:null,score:0},{name:"Player 3",pos:0,previous:null,score:0},{name:"Player 4",pos:0,previous:null,score:0}];current=0;remaining=0;moving=false;gameOver=false;document.querySelector("#die").textContent="—";renderBoard();startTurn()}
 document.querySelector("#roll").addEventListener("click",roll);document.querySelector("#reset").addEventListener("click",resetGame);
 resetGame();
 </script>
