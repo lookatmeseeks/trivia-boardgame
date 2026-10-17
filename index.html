@@ -149,6 +149,7 @@ function resetGame(){document.querySelector("#challenge-overlay").style.display=
 const popularAnime=["Naruto","One Piece","Bleach","Dragon Ball Z","Death Note","Attack on Titan","Fullmetal Alchemist: Brotherhood","Demon Slayer","Jujutsu Kaisen","My Hero Academia","Cowboy Bebop","Hunter x Hunter","Sailor Moon","Pokémon","Spy x Family","One Punch Man","Mob Psycho 100","Neon Genesis Evangelion","Sword Art Online","JoJo's Bizarre Adventure","Code Geass","Chainsaw Man","Vinland Saga","Frieren: Beyond Journey's End","Made in Abyss","Black Clover","Fairy Tail","Haikyuu!!","Tokyo Ghoul","Steins;Gate"];
 function shuffle(items){return [...items].sort(()=>Math.random()-0.5)}
 let lastAnimeBatch=[];
+function allAnimeTitles(){return [...new Set([...popularAnime,...lastAnimeBatch.map(x=>x.title)].map(s=>s.trim()).filter(Boolean))]}
 let kitsuAnimeCount=null;
 async function fetchKitsuAnimeBatch(){
  const base="https://kitsu.io/api/edge/anime?page%5Blimit%5D=20&page%5Boffset%5D=";
