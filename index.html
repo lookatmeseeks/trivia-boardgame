@@ -24,6 +24,13 @@ main{padding:0 clamp(12px,3vw,36px) 30px;display:grid;grid-template-columns:220p
 button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:11px 14px;cursor:pointer;transition:transform .12s,opacity .12s}button:hover:not(:disabled){transform:translateY(-1px)}button:disabled{opacity:.4;cursor:not-allowed}.primary{background:var(--pink);color:#240f20;flex:1}.secondary{background:#2b3248;color:#f5f5ff;border:1px solid #424a65;width:100%}
 .status{color:#d9def0;min-height:48px;background:#111521;border:1px solid #2e3449;padding:12px;border-radius:10px}.choices{display:flex;flex-direction:column;gap:8px}.choice{background:#343149;color:#fff;text-align:left;border:1px solid #5c5279}.players{display:flex;flex-direction:column;gap:8px}.player-row{display:flex;align-items:center;gap:9px;background:#202538;padding:9px 11px;border-radius:9px}.player-row .name{flex:1}.player-row small{color:var(--muted)}
 .note{font-size:12px;color:var(--muted)}footer{padding:0 24px 24px;text-align:center;color:#777f9a;font-size:12px}
+
+.challenge-overlay{position:fixed;inset:0;z-index:20;background:#080a12eF;display:none;align-items:center;justify-content:center;padding:18px;overflow-y:auto}
+.challenge-dialog{width:min(900px,100%);background:#191d2c;border:1px solid #454d68;border-radius:16px;padding:22px;box-shadow:0 20px 80px #0009}
+.challenge-dialog h2{margin:0 0 6px}.challenge-media{display:flex;align-items:center;justify-content:center;min-height:220px;max-height:55vh;background:#10121c;border-radius:12px;margin:16px 0;overflow:hidden}
+.challenge-media img{display:block;max-width:100%;max-height:55vh;object-fit:contain}.challenge-answers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.challenge-answers button{text-align:left;background:#30364d;color:#fff;border:1px solid #4a5371}.challenge-answers button:disabled{opacity:.65}.challenge-meta{font-size:12px;color:var(--muted);margin-top:10px;overflow-wrap:anywhere}.challenge-dialog .status{margin-top:12px}
+@media(max-width:600px){.challenge-answers{grid-template-columns:1fr}.challenge-dialog{padding:14px}}
+
 @media(max-width:1100px){main{grid-template-columns:190px minmax(0,1fr)}.side{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.side section:first-child,.side section:last-child{grid-column:1/-1}}
 @media(max-width:650px){main{grid-template-columns:1fr}.scoreboard-panel{position:static;max-height:none}.side{display:flex}header{padding-top:18px}#board{min-height:280px}}
 </style>
@@ -44,6 +51,17 @@ button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:11px 14p
 </aside>
 </main>
 <footer>Prototype only · Trivia, online multiplayer, and saved game state are not implemented yet.</footer>
+<div class="challenge-overlay" id="challenge-overlay" role="dialog" aria-modal="true" aria-labelledby="challenge-title">
+ <div class="challenge-dialog">
+  <div class="eyebrow">Anime discovery test</div><h2 id="challenge-title">Which anime is this from?</h2>
+  <div class="note" id="challenge-instructions">Finding a random anime and searching Wikimedia Commons for a matching screenshot…</div>
+  <div class="challenge-media" id="challenge-media"><div class="note">Searching…</div></div>
+  <div class="challenge-answers" id="challenge-answers"></div>
+  <div class="status" id="challenge-status" aria-live="polite">Searching for an image.</div>
+  <div class="challenge-meta" id="challenge-source"></div>
+  <button class="secondary" id="challenge-next" style="margin-top:12px;display:none">Search another image</button>
+ </div>
+</div>
 <script>
 const nodes=[
  {id:0,x:90,y:300,label:"START",type:"start"},
@@ -61,7 +79,7 @@ const edges=[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],
  [12,14],[18,21],[15,23]];
 const adjacency={};nodes.forEach(n=>adjacency[n.id]=[]);edges.forEach(([a,b])=>{adjacency[a].push(b);adjacency[b].push(a)});
 const colors=["#ff5da8","#66e3ef","#ffd166","#a78bfa"];
-let players=[],current=0,remaining=0,moving=false,turnStarted=false,gameOver=false;
+let players=[],current=0,remaining=0,moving=false,turnStarted=false,gameOver=false,challengeResolved=false,challengeBusy=false,challengeAnswer="";
 const svg=document.querySelector("#board"),statusEl=document.querySelector("#status"),choicesEl=document.querySelector("#choices");
 function node(id){return nodes.find(n=>n.id===id)}
 function renderBoard(){
@@ -112,19 +130,65 @@ function chooseRoute(id){
 function finishTurn(){
  remaining=0;moving=false;choicesEl.innerHTML="";
  const p=players[current],landed=node(p.pos);
+ if(landed.type==="challenge" && !challengeResolved){startTriviaChallenge();return}
+ challengeResolved=false;
  let result=`${p.name} finished their move on ${landed.label}.`;
  if(landed.type==="score"){p.score+=2;result+=` +2 points! Total: ${p.score}.`;}
  else if(landed.type==="event"){
    const outcomes=[{points:-1,text:"lost 1 point"},{points:1,text:"gained 1 point"},{points:2,text:"gained 2 points"}];
    const event=outcomes[Math.floor(Math.random()*outcomes.length)];p.score+=event.points;
    result+=` Random event: ${event.text}. Total: ${p.score}.`;
- } else if(landed.type==="challenge"){result+=" Challenge space: trivia will be added in a later step. No points awarded yet.";}
+ } else if(landed.type==="challenge"){result+=" Trivia challenge completed.";}
  if(p.pos===9){gameOver=true;setStatus(`${p.name} reached the goal! Final scores: ${players.map(x=>`${x.name} ${x.score}`).join(", ")}. Restart to play again.`);document.querySelector("#roll").disabled=true;updateUI();return}
  current=(current+1)%players.length;
  setStatus(`${result} Next up: ${players[current].name}.`);
  updateUI();document.querySelector("#turn-note").textContent="Ready to roll";
 }
-function resetGame(){players=[{name:"Player 1",pos:0,previous:null,score:0},{name:"Player 2",pos:0,previous:null,score:0},{name:"Player 3",pos:0,previous:null,score:0},{name:"Player 4",pos:0,previous:null,score:0}];current=0;remaining=0;moving=false;gameOver=false;document.querySelector("#die").textContent="—";renderBoard();startTurn()}
+function resetGame(){document.querySelector("#challenge-overlay").style.display="none";players=[{name:"Player 1",pos:0,previous:null,score:0},{name:"Player 2",pos:0,previous:null,score:0},{name:"Player 3",pos:0,previous:null,score:0},{name:"Player 4",pos:0,previous:null,score:0}];current=0;remaining=0;moving=false;gameOver=false;challengeResolved=false;challengeBusy=false;document.querySelector("#die").textContent="—";renderBoard();startTurn()}
+
+const popularAnime=["Naruto","One Piece","Bleach","Dragon Ball Z","Death Note","Attack on Titan","Fullmetal Alchemist: Brotherhood","Demon Slayer","Jujutsu Kaisen","My Hero Academia","Cowboy Bebop","Hunter x Hunter","Sailor Moon","Pokémon","Spy x Family","One Punch Man","Mob Psycho 100","Neon Genesis Evangelion","Sword Art Online","JoJo's Bizarre Adventure"];
+function shuffle(items){return [...items].sort(()=>Math.random()-0.5)}
+async function startTriviaChallenge(){
+ const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
+ overlay.style.display="flex";media.innerHTML='<div class="note">Searching for a screenshot…</div>';answers.innerHTML="";msg.textContent="Getting a random anime, then searching Wikimedia Commons for an image.";source.textContent="";next.style.display="none";challengeBusy=true;challengeAnswer="";
+ try{
+  const animeResponse=await fetch("https://api.jikan.moe/v4/random/anime");
+  if(!animeResponse.ok)throw new Error("The anime catalogue request failed (HTTP "+animeResponse.status+").");
+  const animeJson=await animeResponse.json(),anime=animeJson.data;
+  const answer=anime.title_english||anime.title;
+  if(!answer)throw new Error("The anime catalogue returned no usable title.");
+  challengeAnswer=answer;
+  const query=encodeURIComponent('"'+answer+'" anime');
+  const commonsUrl="https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch="+query+" screenshot&gsrnamespace=6&gsrlimit=20&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*";
+  const imageResponse=await fetch(commonsUrl);
+  if(!imageResponse.ok)throw new Error("The image search request failed (HTTP "+imageResponse.status+").");
+  const imageJson=await imageResponse.json();
+  const pages=Object.values(imageJson.query?.pages||{}).filter(page=>page.imageinfo?.[0]?.thumburl||page.imageinfo?.[0]?.url);
+  if(!pages.length)throw new Error('No usable image was found for "'+answer+'". Try searching again.');
+  const page=pages[Math.floor(Math.random()*pages.length)],info=page.imageinfo[0],imageUrl=info.thumburl||info.url;
+  const img=document.createElement("img");img.alt="Image search result for "+answer;img.src=imageUrl;img.onload=()=>{media.replaceChildren(img)};img.onerror=()=>{media.innerHTML='<div class="note">The image host did not load this result. Search again.</div>';answers.innerHTML="";next.style.display="block";challengeBusy=false};
+  const wrong=shuffle(popularAnime.filter(title=>title.toLowerCase()!==answer.toLowerCase())).slice(0,3);
+  const options=shuffle([answer,...wrong]);answers.innerHTML="";
+  options.forEach(title=>{const button=document.createElement("button");button.textContent=title;button.onclick=()=>resolveTriviaAnswer(title,button);answers.appendChild(button)});
+  msg.textContent="Choose the anime you think this image belongs to.";source.textContent="Image result: "+page.title+" · Wikimedia Commons";
+  challengeBusy=false;
+ }catch(error){
+  media.innerHTML='<div class="note">No screenshot loaded.</div>';msg.textContent=error.message||"The search failed.";source.textContent="This test uses the Jikan anime catalogue and Wikimedia Commons image search. Some titles may not have suitable results.";next.style.display="block";challengeBusy=false;
+ }
+}
+function resolveTriviaAnswer(selected,button){
+ if(challengeBusy||challengeResolved)return;
+ challengeResolved=true;document.querySelectorAll("#challenge-answers button").forEach(b=>b.disabled=true);
+ const msg=document.querySelector("#challenge-status"),next=document.querySelector("#challenge-next");
+ if(selected===challengeAnswer){players[current].score+=2;msg.textContent="Correct! "+challengeAnswer+" · +2 points."}
+ else{msg.textContent="Incorrect. The intended answer was "+challengeAnswer+". No points awarded."}
+ updateUI();next.textContent="Continue turn";next.style.display="block";document.querySelector("#challenge-source").textContent+=" · Answer: "+challengeAnswer;
+}
+document.querySelector("#challenge-next").addEventListener("click",()=>{
+ const next=document.querySelector("#challenge-next");
+ if(!challengeResolved){startTriviaChallenge();return}
+ document.querySelector("#challenge-overlay").style.display="none";challengeResolved=true;finishTurn();
+});
 document.querySelector("#roll").addEventListener("click",roll);document.querySelector("#reset").addEventListener("click",resetGame);
 resetGame();
 </script>
