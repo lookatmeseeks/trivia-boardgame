@@ -47,7 +47,7 @@ button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:11px 14p
  <section><div class="section-title">Current turn</div><div class="current"><div class="avatar" id="current-avatar"></div><div><strong id="current-name">Player 1</strong><small id="turn-note">Ready to roll</small></div></div></section>
  <section><div class="section-title">Dice</div><div class="dice-row"><div class="die" id="die">—</div><button class="primary" id="roll">Roll dice</button></div></section>
  <section><div class="section-title">Game status</div><div class="status" id="status" aria-live="polite">Player 1, roll to begin your turn.</div><div id="choices" class="choices" style="margin-top:10px"></div><div style="display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin-top:10px"><label for="challenge-mode" class="note">Test clue type</label><select id="challenge-mode" style="width:100%;padding:10px;border-radius:9px;background:#22283b;color:#f5f5ff;border:1px solid #424a65"><option value="random">Random mix</option><option value="easy">Easy — covers / characters</option><option value="location">Hard — locations / scenery</option><option value="attack">Hard — attacks / battles</option></select><button class="secondary" id="challenge-test">Test selected clue</button></div></section>
- <section><div class="section-title">My anime list</div><div class="note" style="margin-bottom:8px">Add one anime per line. Optional format: Anime title | direct image URL. Your list is saved in this browser and used for answer choices; image URLs also become easy clues.</div><textarea id="anime-list-input" rows="5" placeholder="Example:
+ <section><div class="section-title">My anime list</div><div class="note" style="margin-bottom:8px">Add one anime per line. Format: Title, or Title | direct image URL | Safebooru anime tag. Titles become answer choices; image URLs become easy clues; an explicit tag lets hard scene searches target that anime.</div><textarea id="anime-list-input" rows="5" placeholder="Example:
 Haibane Renmei
 The Twelve Kingdoms
 Obscure title | https://example.com/cover.jpg" style="width:100%;resize:vertical;padding:10px;border-radius:9px;background:#111521;color:#f5f5ff;border:1px solid #424a65;font:inherit"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button class="primary" id="anime-list-add" style="min-width:0">Add titles</button><button class="secondary" id="anime-list-clear" style="width:auto">Clear</button></div><div class="note" id="anime-list-status" style="margin-top:8px" aria-live="polite"></div><div id="anime-list-display" class="note" style="margin-top:8px;max-height:150px;overflow:auto;white-space:pre-wrap"></div></section>
@@ -162,18 +162,18 @@ function saveCustomAnimeList(){try{localStorage.setItem(ANIME_LIST_STORAGE_KEY,J
 function renderCustomAnimeList(){
  const display=document.querySelector("#anime-list-display"),status=document.querySelector("#anime-list-status");
  if(!display||!status)return;
- display.textContent=customAnimeList.length?customAnimeList.map((x,i)=>(i+1)+". "+x.title+(x.url?"  [image added]":"")).join("\n"):"No custom anime added yet."; 
+ display.textContent=customAnimeList.length?customAnimeList.map((x,i)=>(i+1)+". "+x.title+(x.url?"  [image added]":x.tag?"  [scene tag added]":"")).join("\n"):"No custom anime added yet."; 
  status.textContent=customAnimeList.length+" custom title"+(customAnimeList.length===1?"":"s")+" saved in this browser.";
 }
 function addCustomAnime(){
  const input=document.querySelector("#anime-list-input"),raw=input.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
  let added=0,skipped=0;
  raw.forEach(line=>{
-  const split=line.split("|"),title=(split.shift()||"").trim(),url=split.join("|").trim();
+  const split=line.split("|"),title=(split.shift()||"").trim(),url=(split.shift()||"").trim(),tag=split.join("|").trim();
   if(!title){skipped++;return}
   if(customAnimeList.some(x=>x.title.toLowerCase()===title.toLowerCase())){skipped++;return}
   if(url&&!/^https?:\/\//i.test(url)){skipped++;return}
-  customAnimeList.push({title,url,type:url?"cover":null,difficulty:1,label:url?"User-added image":"Custom anime title"});
+  customAnimeList.push({title,url,tag,type:url?"cover":null,difficulty:1,label:url?"User-added image":"Custom anime title"});
   added++;
  });
  saveCustomAnimeList();renderCustomAnimeList();input.value="";
