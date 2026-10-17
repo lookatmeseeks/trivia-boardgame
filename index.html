@@ -182,7 +182,7 @@ async function findSceneImage(mode="random"){
  const response=await fetch(endpoint,{headers:{"Accept":"application/json"}});
  if(!response.ok)throw new Error("Scene image search returned HTTP "+response.status);
  const posts=await response.json();
- const usable=posts.filter(p=>p.rating==="g"&&p.file_url&&/\\.(jpg|jpeg|png|webp)(\\?|$)/i.test(p.file_url)&&p.image_width>=300&&p.image_height>=200);
+ const usable=posts.filter(p=>p.rating==="g"&&p.file_url&&/\.(jpg|jpeg|png|webp)(\?|$)/i.test(p.file_url)&&p.image_width>=300&&p.image_height>=200);
  if(!usable.length)throw new Error("No general-rated scene images were returned");
  const post=usable[Math.floor(Math.random()*usable.length)];
  return {title:candidate.title,url:post.large_file_url||post.file_url,type:candidate.type,difficulty:3,label:candidate.type==="attack"?"Battle / attack scene":"Location / scenery",sourceUrl:"https://safebooru.donmai.us/posts/"+post.id};
