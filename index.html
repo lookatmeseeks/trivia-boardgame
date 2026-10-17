@@ -153,38 +153,50 @@ async function startTriviaChallenge(){
  overlay.style.display="flex";media.innerHTML='<div class="note">Searching for a screenshot…</div>';answers.innerHTML="";msg.textContent="Searching for an anime and a related image.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";
  let stage="anime catalogue";
  try{
-  let answer;
+  let anime,answer;
   try{
    const animeResponse=await fetch("https://api.jikan.moe/v4/random/anime");
    if(!animeResponse.ok)throw new Error("HTTP "+animeResponse.status);
-   const animeJson=await animeResponse.json(),anime=animeJson.data;
-   answer=anime.title_english||anime.title;
+   const animeJson=await animeResponse.json();anime=animeJson.data;answer=anime.title_english||anime.title;
    if(!answer)throw new Error("No usable title in response");
   }catch(error){
    const fallback=["Naruto","One Piece","Bleach","Dragon Ball Z","Death Note","Attack on Titan","Fullmetal Alchemist: Brotherhood","Demon Slayer","Jujutsu Kaisen","My Hero Academia","Cowboy Bebop","Hunter x Hunter","Sailor Moon","Pokémon","Spy x Family","One Punch Man","Mob Psycho 100","Neon Genesis Evangelion","Sword Art Online","JoJo's Bizarre Adventure"];
    answer=fallback[Math.floor(Math.random()*fallback.length)];
    source.textContent="Anime catalogue unavailable; using a temporary test title. ";
   }
-  challengeAnswer=answer;stage="Wikimedia Commons image search";
-  const query=encodeURIComponent('"'+answer+'" anime screenshot');
-  const commonsUrl="https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch="+query+"&gsrnamespace=6&gsrlimit=20&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*";
-  const imageResponse=await fetch(commonsUrl);
-  if(!imageResponse.ok)throw new Error("HTTP "+imageResponse.status);
-  const imageJson=await imageResponse.json();
-  const pages=Object.values(imageJson.query?.pages||{}).filter(page=>page.imageinfo?.[0]?.thumburl||page.imageinfo?.[0]?.url);
-  if(!pages.length)throw new Error('No usable image results for "'+answer+'".');
-  const page=pages[Math.floor(Math.random()*pages.length)],info=page.imageinfo[0],imageUrl=info.thumburl||info.url;
-  const img=document.createElement("img");img.alt="Image search result for "+answer;img.src=imageUrl;
+  challengeAnswer=answer;
+  stage="image search";
+  // Wikimedia Commons rarely hosts copyrighted episode frames. Try a broad title search there,
+  // then use the anime catalogue's image only as an explicitly labelled fallback.
+  let page=null,info=null;
+  try{
+   const searches=['"'+answer+'"',''+answer+' anime'];
+   for(const term of searches){
+    const commonsUrl="https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch="+encodeURIComponent(term)+"&gsrnamespace=6&gsrlimit=15&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*";
+    const imageResponse=await fetch(commonsUrl);
+    if(!imageResponse.ok)continue;
+    const imageJson=await imageResponse.json();
+    const pages=Object.values(imageJson.query?.pages||{}).filter(p=>(p.imageinfo?.[0]?.thumburl||p.imageinfo?.[0]?.url)&&!/(logo|icon|flag|poster|cover|banner)/i.test(p.title));
+    if(pages.length){page=pages[Math.floor(Math.random()*pages.length)];info=page.imageinfo[0];break}
+   }
+  }catch(error){source.textContent+="Commons search unavailable. "}
+  let imageUrl=info?.thumburl||info?.url, imageLabel=page?"Wikimedia Commons result: "+page.title:"";
+  if(!imageUrl && anime?.images?.jpg?.large_image_url){
+   imageUrl=anime.images.jpg.large_image_url;
+   imageLabel="Catalogue fallback: anime cover art for "+answer+" (not an episode screenshot)";
+  }
+  if(!imageUrl)throw new Error('No image found for "'+answer+'". Commons had no matching file and the anime catalogue had no cover image.');
+  const img=document.createElement("img");img.alt=imageLabel||"Anime image for "+answer;img.src=imageUrl;
   img.onload=()=>{media.replaceChildren(img)};
-  img.onerror=()=>{media.innerHTML='<div class="note">The image host did not load this result. Try searching again.</div>';answers.innerHTML="";msg.textContent="The search returned an image, but the image file failed to load.";next.textContent="Try again";next.style.display="block";challengeBusy=false};
+  img.onerror=()=>{media.innerHTML='<div class="note">The image host did not load this result. Try again.</div>';answers.innerHTML="";msg.textContent="The search returned an image, but the image file failed to load.";next.textContent="Try again";next.style.display="block";challengeBusy=false};
   const wrong=shuffle(popularAnime.filter(title=>title.toLowerCase()!==answer.toLowerCase())).slice(0,3);
   const options=shuffle([answer,...wrong]);answers.innerHTML="";
   options.forEach(title=>{const button=document.createElement("button");button.textContent=title;button.onclick=()=>resolveTriviaAnswer(title,button);answers.appendChild(button)});
-  msg.textContent="Choose the anime you think this image belongs to.";
-  source.textContent+="Image result: "+page.title+" · Wikimedia Commons";
+  msg.textContent=page?"Choose the anime you think this image belongs to.": "Image loaded, but this is cover art rather than a scene screenshot; the screenshot-search source still needs replacing.";
+  source.textContent+=(source.textContent?" ":"")+imageLabel;
   challengeBusy=false;
  }catch(error){
-  media.innerHTML='<div class="note">No screenshot loaded.</div>';msg.textContent=stage+" failed: "+(error.message||"Network request failed")+". This may be a network or browser access restriction.";source.textContent+="If this repeats, the search service may be unreachable from this browser/network.";next.textContent="Try again";next.style.display="block";challengeBusy=false;
+  media.innerHTML='<div class="note">No image loaded.</div>';msg.textContent=stage+" failed: "+(error.message||"Network request failed")+". The current static-site image sources may not provide a usable screenshot.";source.textContent+="A proper episode-frame search needs a reliable screenshot source, not just a general image host.";next.textContent="Try again";next.style.display="block";challengeBusy=false;
  }
 }
 function resolveTriviaAnswer(selected,button){
