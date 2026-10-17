@@ -146,45 +146,74 @@ function finishTurn(){
 }
 function resetGame(){document.querySelector("#challenge-overlay").style.display="none";players=[{name:"Player 1",pos:0,previous:null,score:0},{name:"Player 2",pos:0,previous:null,score:0},{name:"Player 3",pos:0,previous:null,score:0},{name:"Player 4",pos:0,previous:null,score:0}];current=0;remaining=0;moving=false;gameOver=false;challengeResolved=false;challengeBusy=false;document.querySelector("#die").textContent="—";renderBoard();startTurn()}
 
-const popularAnime=["Naruto","One Piece","Bleach","Dragon Ball Z","Death Note","Attack on Titan","Fullmetal Alchemist: Brotherhood","Demon Slayer","Jujutsu Kaisen","My Hero Academia","Cowboy Bebop","Hunter x Hunter","Sailor Moon","Pokémon","Spy x Family","One Punch Man","Mob Psycho 100","Neon Genesis Evangelion","Sword Art Online","JoJo's Bizarre Adventure"];
+const popularAnime=["Naruto","One Piece","Bleach","Dragon Ball Z","Death Note","Attack on Titan","Fullmetal Alchemist: Brotherhood","Demon Slayer","Jujutsu Kaisen","My Hero Academia","Cowboy Bebop","Hunter x Hunter","Sailor Moon","Pokémon","Spy x Family","One Punch Man","Mob Psycho 100","Neon Genesis Evangelion","Sword Art Online","JoJo's Bizarre Adventure","Code Geass","Chainsaw Man","Vinland Saga","Frieren: Beyond Journey's End","Made in Abyss","Black Clover","Fairy Tail","Haikyuu!!","Tokyo Ghoul","Steins;Gate"];
 function shuffle(items){return [...items].sort(()=>Math.random()-0.5)}
+const starterImagePool=[
+ {title:"Attack on Titan",url:"https://myanimelist.net/images/anime/10/47347.jpg",type:"cover",difficulty:1,label:"Anime cover"},
+ {title:"Death Note",url:"https://myanimelist.net/images/anime/1079/138100.jpg",type:"cover",difficulty:1,label:"Anime cover"},
+ {title:"Fullmetal Alchemist: Brotherhood",url:"https://myanimelist.net/images/anime/1208/94745.jpg",type:"cover",difficulty:1,label:"Anime cover"},
+ {title:"One Punch Man",url:"https://myanimelist.net/images/anime/12/76049.jpg",type:"cover",difficulty:1,label:"Anime cover"},
+ {title:"Demon Slayer",url:"https://myanimelist.net/images/anime/1286/99889.jpg",type:"cover",difficulty:1,label:"Anime cover"},
+ {title:"Code Geass",url:"https://cdn.myanimelist.net/images/characters/8/406163.jpg",type:"character",difficulty:1,label:"Character portrait"},
+ {title:"One Piece",url:"https://cdn.myanimelist.net/images/characters/9/310307.jpg",type:"character",difficulty:1,label:"Character portrait"},
+ {title:"Attack on Titan",url:"https://cdn.myanimelist.net/images/characters/2/241413.jpg",type:"character",difficulty:1,label:"Character portrait"},
+ {title:"Death Note",url:"https://cdn.myanimelist.net/images/characters/10/249647.jpg",type:"character",difficulty:1,label:"Character portrait"},
+ {title:"One Piece",url:"https://cdn.myanimelist.net/images/characters/3/100534.jpg",type:"character",difficulty:1,label:"Character portrait"}
+];
+const sceneSearchTitles=[
+ {title:"Naruto",tag:"naruto",type:"attack",tagHint:"battle"},
+ {title:"One Piece",tag:"one_piece",type:"location",tagHint:"scenery"},
+ {title:"Bleach",tag:"bleach",type:"attack",tagHint:"battle"},
+ {title:"Dragon Ball Z",tag:"dragon_ball_z",type:"attack",tagHint:"battle"},
+ {title:"Attack on Titan",tag:"shingeki_no_kyojin",type:"location",tagHint:"scenery"},
+ {title:"Demon Slayer",tag:"kimetsu_no_yaiba",type:"attack",tagHint:"battle"},
+ {title:"Jujutsu Kaisen",tag:"jujutsu_kaisen",type:"attack",tagHint:"battle"},
+ {title:"My Hero Academia",tag:"boku_no_hero_academia",type:"attack",tagHint:"battle"},
+ {title:"Hunter x Hunter",tag:"hunter_x_hunter",type:"attack",tagHint:"battle"},
+ {title:"Neon Genesis Evangelion",tag:"neon_genesis_evangelion",type:"location",tagHint:"scenery"},
+ {title:"Cowboy Bebop",tag:"cowboy_bebop",type:"location",tagHint:"scenery"},
+ {title:"Made in Abyss",tag:"made_in_abyss",type:"location",tagHint:"scenery"}
+];
+async function findSceneImage(){
+ const candidate=sceneSearchTitles[Math.floor(Math.random()*sceneSearchTitles.length)];
+ const tags=encodeURIComponent(candidate.tag+" "+candidate.tagHint+" rating:g");
+ const endpoint="https://safebooru.donmai.us/posts.json?limit=100&tags="+tags;
+ const response=await fetch(endpoint,{headers:{"Accept":"application/json"}});
+ if(!response.ok)throw new Error("Scene image search returned HTTP "+response.status);
+ const posts=await response.json();
+ const usable=posts.filter(p=>p.rating==="g"&&p.file_url&&/\\.(jpg|jpeg|png|webp)(\\?|$)/i.test(p.file_url)&&p.image_width>=300&&p.image_height>=200);
+ if(!usable.length)throw new Error("No general-rated scene images were returned");
+ const post=usable[Math.floor(Math.random()*usable.length)];
+ return {title:candidate.title,url:post.large_file_url||post.file_url,type:candidate.type,difficulty:3,label:candidate.type==="attack"?"Battle / attack scene":"Location / scenery",sourceUrl:"https://safebooru.donmai.us/posts/"+post.id};
+}
 async function startTriviaChallenge(){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
- overlay.style.display="flex";media.innerHTML='<div class="note">Picking a random MyAnimeList image…</div>';answers.innerHTML="";msg.textContent="Picking a random MyAnimeList image.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";
- let stage="MyAnimeList image pool";
+ overlay.style.display="flex";media.innerHTML='<div class="note">Choosing a clue image…</div>';answers.innerHTML="";msg.textContent="Choosing an image and clue type.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";
+ let entry;
  try{
-  // Start with known MyAnimeList image URLs so the prototype does not depend on
-  // a browser fetch to Jikan. These are real catalogue/character images used by grids.fun.
-  const imagePool=[
-   {title:"Attack on Titan",url:"https://myanimelist.net/images/anime/10/47347.jpg",label:"Attack on Titan anime image"},
-   {title:"Death Note",url:"https://myanimelist.net/images/anime/1079/138100.jpg",label:"Death Note anime image"},
-   {title:"Fullmetal Alchemist: Brotherhood",url:"https://myanimelist.net/images/anime/1208/94745.jpg",label:"Fullmetal Alchemist: Brotherhood anime image"},
-   {title:"One Punch Man",url:"https://myanimelist.net/images/anime/12/76049.jpg",label:"One-Punch Man anime image"},
-   {title:"Demon Slayer",url:"https://myanimelist.net/images/anime/1286/99889.jpg",label:"Demon Slayer anime image"},
-   {title:"Code Geass",url:"https://cdn.myanimelist.net/images/characters/8/406163.jpg",label:"Lelouch Lamperouge character image"},
-   {title:"One Piece",url:"https://cdn.myanimelist.net/images/characters/9/310307.jpg",label:"Monkey D. Luffy character image"},
-   {title:"Attack on Titan",url:"https://cdn.myanimelist.net/images/characters/2/241413.jpg",label:"Levi character image"},
-   {title:"Death Note",url:"https://cdn.myanimelist.net/images/characters/10/249647.jpg",label:"L Lawliet character image"},
-   {title:"One Piece",url:"https://cdn.myanimelist.net/images/characters/3/100534.jpg",label:"Roronoa Zoro character image"}
-  ];
-  const entry=imagePool[Math.floor(Math.random()*imagePool.length)];
-  const answer=entry.title;
-  challengeAnswer=answer;
+  // Prefer a safe-rated scene/setting image. If that external catalogue is blocked,
+  // use the verified starter pool rather than preventing the trivia round from working.
+  try{entry=await findSceneImage()}catch(sceneError){entry=starterImagePool[Math.floor(Math.random()*starterImagePool.length)];entry={...entry,sourceUrl:"https://myanimelist.net/"}}
+  challengeAnswer=entry.title;
   const img=document.createElement("img");img.alt=entry.label;img.src=entry.url;
   img.onload=()=>{media.replaceChildren(img)};
   img.onerror=()=>{
-   media.innerHTML='<div class="note">The MyAnimeList image failed to load. Try another image.</div>';
-   answers.innerHTML="";msg.textContent="This image URL failed to load from the browser.";
+   media.innerHTML='<div class="note">This image failed to load. Try another clue.</div>';
+   answers.innerHTML="";msg.textContent="The selected image URL could not be loaded by the browser.";
    next.textContent="Try again";next.style.display="block";challengeBusy=false;
   };
-  const wrong=shuffle(popularAnime.filter(title=>title.toLowerCase()!==answer.toLowerCase())).slice(0,3);
-  const options=shuffle([answer,...wrong]);answers.innerHTML="";
+  const wrong=shuffle(popularAnime.filter(title=>title.toLowerCase()!==entry.title.toLowerCase())).slice(0,3);
+  const options=shuffle([entry.title,...wrong]);answers.innerHTML="";
   options.forEach(title=>{const button=document.createElement("button");button.textContent=title;button.onclick=()=>resolveTriviaAnswer(title,button);answers.appendChild(button)});
-  msg.textContent="Which anime is this image associated with?";
-  source.textContent="Image: "+entry.label+". Source: MyAnimeList image CDN. This is a starter image pool; it avoids the catalogue API that failed in the browser.";
+  const typeNames={cover:"Cover",character:"Character",location:"Location / scenery",attack:"Attack / battle scene"};
+  const difficultyNames={1:"Easy",2:"Medium",3:"Hard"};
+  document.querySelector("#challenge-title").textContent="Which anime is this from?";
+  document.querySelector("#challenge-instructions").textContent=typeNames[entry.type]+" clue · "+difficultyNames[entry.difficulty];
+  msg.textContent="Identify the anime from the image.";
+  source.innerHTML="Clue: "+entry.label+". Source: "+(entry.sourceUrl||"MyAnimeList image CDN")+(entry.sourceUrl&&entry.type!=="cover"&&entry.type!=="character"?' · <a href="'+entry.sourceUrl+'" target="_blank" rel="noopener" style="color:#66e3ef">View source post</a>':"");
   challengeBusy=false;
  }catch(error){
-  media.innerHTML='<div class="note">No image loaded.</div>';msg.textContent=stage+" failed: "+(error.message||"Network request failed")+". The MyAnimeList image pool could not produce a usable image.";source.textContent+="MyAnimeList provides anime and character galleries, but these images are not guaranteed to be episode frames.";next.textContent="Try again";next.style.display="block";challengeBusy=false;
+  media.innerHTML='<div class="note">No image loaded.</div>';msg.textContent="Image search failed: "+(error.message||"Network request failed")+". Try again.";next.textContent="Try again";next.style.display="block";challengeBusy=false;
  }
 }
 function resolveTriviaAnswer(selected,button){
