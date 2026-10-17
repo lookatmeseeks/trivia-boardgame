@@ -46,7 +46,7 @@ button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:11px 14p
 <aside class="side">
  <section><div class="section-title">Current turn</div><div class="current"><div class="avatar" id="current-avatar"></div><div><strong id="current-name">Player 1</strong><small id="turn-note">Ready to roll</small></div></div></section>
  <section><div class="section-title">Dice</div><div class="dice-row"><div class="die" id="die">—</div><button class="primary" id="roll">Roll dice</button></div></section>
- <section><div class="section-title">Game status</div><div class="status" id="status" aria-live="polite">Player 1, roll to begin your turn.</div><div id="choices" class="choices" style="margin-top:10px"></div></section>
+ <section><div class="section-title">Game status</div><div class="status" id="status" aria-live="polite">Player 1, roll to begin your turn.</div><div id="choices" class="choices" style="margin-top:10px"></div><button class="secondary" id="challenge-test" style="margin-top:10px">Test anime search</button></section>
  <section><div class="section-title">How to play</div><div class="note">Roll a d6 and move one tile at a time. When you reach a junction, choose an available route to continue. The board contains loops, so routes can reconnect. Landing on ★ awards points. ! triggers a random score event. ? is reserved for future trivia challenges.</div></section>
 </aside>
 </main>
@@ -150,30 +150,41 @@ const popularAnime=["Naruto","One Piece","Bleach","Dragon Ball Z","Death Note","
 function shuffle(items){return [...items].sort(()=>Math.random()-0.5)}
 async function startTriviaChallenge(){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
- overlay.style.display="flex";media.innerHTML='<div class="note">Searching for a screenshot…</div>';answers.innerHTML="";msg.textContent="Getting a random anime, then searching Wikimedia Commons for an image.";source.textContent="";next.style.display="none";challengeBusy=true;challengeAnswer="";
+ overlay.style.display="flex";media.innerHTML='<div class="note">Searching for a screenshot…</div>';answers.innerHTML="";msg.textContent="Searching for an anime and a related image.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";
+ let stage="anime catalogue";
  try{
-  const animeResponse=await fetch("https://api.jikan.moe/v4/random/anime");
-  if(!animeResponse.ok)throw new Error("The anime catalogue request failed (HTTP "+animeResponse.status+").");
-  const animeJson=await animeResponse.json(),anime=animeJson.data;
-  const answer=anime.title_english||anime.title;
-  if(!answer)throw new Error("The anime catalogue returned no usable title.");
-  challengeAnswer=answer;
-  const query=encodeURIComponent('"'+answer+'" anime');
-  const commonsUrl="https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch="+query+" screenshot&gsrnamespace=6&gsrlimit=20&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*";
+  let answer;
+  try{
+   const animeResponse=await fetch("https://api.jikan.moe/v4/random/anime");
+   if(!animeResponse.ok)throw new Error("HTTP "+animeResponse.status);
+   const animeJson=await animeResponse.json(),anime=animeJson.data;
+   answer=anime.title_english||anime.title;
+   if(!answer)throw new Error("No usable title in response");
+  }catch(error){
+   const fallback=["Naruto","One Piece","Bleach","Dragon Ball Z","Death Note","Attack on Titan","Fullmetal Alchemist: Brotherhood","Demon Slayer","Jujutsu Kaisen","My Hero Academia","Cowboy Bebop","Hunter x Hunter","Sailor Moon","Pokémon","Spy x Family","One Punch Man","Mob Psycho 100","Neon Genesis Evangelion","Sword Art Online","JoJo's Bizarre Adventure"];
+   answer=fallback[Math.floor(Math.random()*fallback.length)];
+   source.textContent="Anime catalogue unavailable; using a temporary test title. ";
+  }
+  challengeAnswer=answer;stage="Wikimedia Commons image search";
+  const query=encodeURIComponent('"'+answer+'" anime screenshot');
+  const commonsUrl="https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch="+query+"&gsrnamespace=6&gsrlimit=20&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*";
   const imageResponse=await fetch(commonsUrl);
-  if(!imageResponse.ok)throw new Error("The image search request failed (HTTP "+imageResponse.status+").");
+  if(!imageResponse.ok)throw new Error("HTTP "+imageResponse.status);
   const imageJson=await imageResponse.json();
   const pages=Object.values(imageJson.query?.pages||{}).filter(page=>page.imageinfo?.[0]?.thumburl||page.imageinfo?.[0]?.url);
-  if(!pages.length)throw new Error('No usable image was found for "'+answer+'". Try searching again.');
+  if(!pages.length)throw new Error('No usable image results for "'+answer+'".');
   const page=pages[Math.floor(Math.random()*pages.length)],info=page.imageinfo[0],imageUrl=info.thumburl||info.url;
-  const img=document.createElement("img");img.alt="Image search result for "+answer;img.src=imageUrl;img.onload=()=>{media.replaceChildren(img)};img.onerror=()=>{media.innerHTML='<div class="note">The image host did not load this result. Search again.</div>';answers.innerHTML="";next.style.display="block";challengeBusy=false};
+  const img=document.createElement("img");img.alt="Image search result for "+answer;img.src=imageUrl;
+  img.onload=()=>{media.replaceChildren(img)};
+  img.onerror=()=>{media.innerHTML='<div class="note">The image host did not load this result. Try searching again.</div>';answers.innerHTML="";msg.textContent="The search returned an image, but the image file failed to load.";next.textContent="Try again";next.style.display="block";challengeBusy=false};
   const wrong=shuffle(popularAnime.filter(title=>title.toLowerCase()!==answer.toLowerCase())).slice(0,3);
   const options=shuffle([answer,...wrong]);answers.innerHTML="";
   options.forEach(title=>{const button=document.createElement("button");button.textContent=title;button.onclick=()=>resolveTriviaAnswer(title,button);answers.appendChild(button)});
-  msg.textContent="Choose the anime you think this image belongs to.";source.textContent="Image result: "+page.title+" · Wikimedia Commons";
+  msg.textContent="Choose the anime you think this image belongs to.";
+  source.textContent+="Image result: "+page.title+" · Wikimedia Commons";
   challengeBusy=false;
  }catch(error){
-  media.innerHTML='<div class="note">No screenshot loaded.</div>';msg.textContent=error.message||"The search failed.";source.textContent="This test uses the Jikan anime catalogue and Wikimedia Commons image search. Some titles may not have suitable results.";next.style.display="block";challengeBusy=false;
+  media.innerHTML='<div class="note">No screenshot loaded.</div>';msg.textContent=stage+" failed: "+(error.message||"Network request failed")+". This may be a network or browser access restriction.";source.textContent+="If this repeats, the search service may be unreachable from this browser/network.";next.textContent="Try again";next.style.display="block";challengeBusy=false;
  }
 }
 function resolveTriviaAnswer(selected,button){
@@ -184,8 +195,8 @@ function resolveTriviaAnswer(selected,button){
  else{msg.textContent="Incorrect. The intended answer was "+challengeAnswer+". No points awarded."}
  updateUI();next.textContent="Continue turn";next.style.display="block";document.querySelector("#challenge-source").textContent+=" · Answer: "+challengeAnswer;
 }
+document.querySelector("#challenge-test").addEventListener("click",startTriviaChallenge);
 document.querySelector("#challenge-next").addEventListener("click",()=>{
- const next=document.querySelector("#challenge-next");
  if(!challengeResolved){startTriviaChallenge();return}
  document.querySelector("#challenge-overlay").style.display="none";challengeResolved=true;finishTurn();
 });
