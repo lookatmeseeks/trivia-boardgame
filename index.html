@@ -9,7 +9,10 @@
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 20% 0%,#28213d 0,transparent 45%),var(--bg);color:#f5f5ff;font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
 header{padding:24px clamp(16px,4vw,48px) 16px;display:flex;gap:20px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .brand{font-weight:900;font-size:clamp(22px,3vw,32px);letter-spacing:.04em}.brand span{color:var(--pink)}.sub{color:var(--muted);margin-top:3px}
-main{padding:0 clamp(12px,3vw,36px) 30px;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px;max-width:1600px;margin:auto}
+main{padding:0 clamp(12px,3vw,36px) 30px;display:grid;grid-template-columns:220px minmax(0,1fr) 280px;gap:16px;max-width:1800px;margin:auto}
+.scoreboard-panel{background:linear-gradient(145deg,#1b2030,#151825);border:1px solid #30364b;border-radius:18px;box-shadow:0 18px 55px #0003;padding:18px;align-self:start;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto}
+.scoreboard-panel .player-row{flex-wrap:wrap}.scoreboard-panel .player-row .name{min-width:80px}
+
 .board-wrap,.side{background:linear-gradient(145deg,#1b2030,#151825);border:1px solid #30364b;border-radius:18px;box-shadow:0 18px 55px #0003;overflow:hidden}
 .board-top{padding:14px 18px;border-bottom:1px solid #30364b;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:800}
 #board{display:block;width:100%;height:auto;min-height:360px;background:radial-gradient(ellipse at center,#20263a,#141824)}
@@ -21,13 +24,14 @@ main{padding:0 clamp(12px,3vw,36px) 30px;display:grid;grid-template-columns:minm
 button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:11px 14px;cursor:pointer;transition:transform .12s,opacity .12s}button:hover:not(:disabled){transform:translateY(-1px)}button:disabled{opacity:.4;cursor:not-allowed}.primary{background:var(--pink);color:#240f20;flex:1}.secondary{background:#2b3248;color:#f5f5ff;border:1px solid #424a65;width:100%}
 .status{color:#d9def0;min-height:48px;background:#111521;border:1px solid #2e3449;padding:12px;border-radius:10px}.choices{display:flex;flex-direction:column;gap:8px}.choice{background:#343149;color:#fff;text-align:left;border:1px solid #5c5279}.players{display:flex;flex-direction:column;gap:8px}.player-row{display:flex;align-items:center;gap:9px;background:#202538;padding:9px 11px;border-radius:9px}.player-row .name{flex:1}.player-row small{color:var(--muted)}
 .note{font-size:12px;color:var(--muted)}footer{padding:0 24px 24px;text-align:center;color:#777f9a;font-size:12px}
-@media(max-width:900px){main{grid-template-columns:1fr}.side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.side section:first-child,.side section:last-child{grid-column:1/-1}}
-@media(max-width:520px){.side{display:flex}header{padding-top:18px}#board{min-height:280px}}
+@media(max-width:1100px){main{grid-template-columns:190px minmax(0,1fr)}.side{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.side section:first-child,.side section:last-child{grid-column:1/-1}}
+@media(max-width:650px){main{grid-template-columns:1fr}.scoreboard-panel{position:static;max-height:none}.side{display:flex}header{padding-top:18px}#board{min-height:280px}}
 </style>
 </head>
 <body>
 <header><div><div class="brand">ANIME <span>PARTY</span></div><div class="sub">A tiny board-game prototype · Step 2: score and board spaces</div></div><div class="eyebrow">Local pass-and-play</div></header>
 <main>
+<aside class="scoreboard-panel"><div class="section-title">Scoreboard</div><div class="players" id="players"></div><button class="secondary" id="reset" style="margin-top:10px">Restart game</button></aside>
 <section class="board-wrap">
  <div class="board-top"><div><div class="eyebrow">The board</div><strong>Pick a path. Roll the dice. Keep moving.</strong></div><div class="note">★ Score · ! Event · ? Challenge</div></div>
  <svg id="board" viewBox="0 0 900 600" role="img" aria-label="Board with branching paths and loops"></svg>
@@ -36,7 +40,6 @@ button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:11px 14p
  <section><div class="section-title">Current turn</div><div class="current"><div class="avatar" id="current-avatar"></div><div><strong id="current-name">Player 1</strong><small id="turn-note">Ready to roll</small></div></div></section>
  <section><div class="section-title">Dice</div><div class="dice-row"><div class="die" id="die">—</div><button class="primary" id="roll">Roll dice</button></div></section>
  <section><div class="section-title">Game status</div><div class="status" id="status" aria-live="polite">Player 1, roll to begin your turn.</div><div id="choices" class="choices" style="margin-top:10px"></div></section>
- <section><div class="section-title">Scoreboard</div><div class="players" id="players"></div><button class="secondary" id="reset" style="margin-top:10px">Restart game</button></section>
  <section><div class="section-title">How to play</div><div class="note">Roll a d6 and move one tile at a time. When you reach a junction, choose an available route to continue. The board contains loops, so routes can reconnect. Landing on ★ awards points. ! triggers a random score event. ? is reserved for future trivia challenges.</div></section>
 </aside>
 </main>
