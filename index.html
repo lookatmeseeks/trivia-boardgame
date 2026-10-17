@@ -181,10 +181,18 @@ function kitsuAnimeToEntry(item){
  return {title,url:poster,type:"cover",difficulty:1,label:"Anime cover",sourceUrl:"https://kitsu.io/anime/"+item.id};
 }
 async function fetchRandomKitsuAnime(){
- const batch=await fetchKitsuAnimeBatch();
- const entry=batch[Math.floor(Math.random()*batch.length)];
- if(!entry)throw new Error("Kitsu returned no usable anime cover images");
- return entry;
+ let lastError;
+ for(let attempt=0;attempt<3;attempt++){
+  try{
+   const batch=await fetchKitsuAnimeBatch();
+   const entry=batch[Math.floor(Math.random()*batch.length)];
+   if(!entry)throw new Error("Kitsu returned no usable anime cover images");
+   return entry;
+  }catch(error){
+   lastError=error;
+  }
+ }
+ throw lastError||new Error("Could not retrieve an anime cover after 3 attempts");
 }
 const starterImagePool=[
  {title:"Attack on Titan",url:"https://myanimelist.net/images/anime/10/47347.jpg",type:"cover",difficulty:1,label:"Anime cover"},
@@ -226,7 +234,7 @@ async function findSceneImage(mode="random"){
  const post=usable[Math.floor(Math.random()*usable.length)];
  return {title:candidate.title,url:post.large_file_url||post.file_url,type:candidate.type,difficulty:3,label:candidate.type==="attack"?"Battle / attack scene":"Location / scenery",sourceUrl:"https://safebooru.donmai.us/posts/"+post.id};
 }
-async function startTriviaChallenge(mode=document.querySelector("#challenge-mode")?.value||"random"){
+async function startTriviaChallenge(mode=document.querySelector("#challenge-mode")?.value||"random",retryCount=0){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
  overlay.style.display="flex";media.innerHTML='<div class="note">Choosing a clue image…</div>';answers.innerHTML="";msg.textContent="Choosing an image and clue type.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";lastAnimeBatch=[];
  let entry;
@@ -245,8 +253,13 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
   const img=document.createElement("img");img.alt=entry.label;img.src=entry.url;
   img.onload=()=>{media.replaceChildren(img)};
   img.onerror=()=>{
-   media.innerHTML='<div class="note">This image failed to load. Try another clue.</div>';
-   answers.innerHTML="";msg.textContent="The selected image URL could not be loaded by the browser.";
+   if(retryCount<3){
+    msg.textContent="Image failed to load. Automatically trying another random clue ("+(retryCount+1)+"/3)…";
+    startTriviaChallenge(mode,retryCount+1);
+    return;
+   }
+   media.innerHTML='<div class="note">Several images failed to load.</div>';
+   answers.innerHTML="";msg.textContent="Could not load an image after 4 attempts. You can try again.";
    next.textContent="Try again";next.style.display="block";challengeBusy=false;
   };
   const wrong=shuffle(allAnimeTitles().filter(title=>title.toLowerCase()!==entry.title.toLowerCase())).slice(0,3);
