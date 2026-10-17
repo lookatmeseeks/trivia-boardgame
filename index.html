@@ -36,7 +36,7 @@ button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:11px 14p
 </style>
 </head>
 <body>
-<header><div><div class="brand">ANIME <span>PARTY</span></div><div class="sub">A tiny board-game prototype · Step 2: score and board spaces</div></div><div class="eyebrow">Local pass-and-play</div></header>
+<header><div><div class="brand">ANIME <span>PARTY</span></div><div class="sub">A tiny board-game prototype · Step 3: anime-image discovery test</div></div><div class="eyebrow">Local pass-and-play</div></header>
 <main>
 <aside class="scoreboard-panel"><div class="section-title">Scoreboard</div><div class="players" id="players"></div><button class="secondary" id="reset" style="margin-top:10px">Restart game</button></aside>
 <section class="board-wrap">
@@ -47,14 +47,14 @@ button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:11px 14p
  <section><div class="section-title">Current turn</div><div class="current"><div class="avatar" id="current-avatar"></div><div><strong id="current-name">Player 1</strong><small id="turn-note">Ready to roll</small></div></div></section>
  <section><div class="section-title">Dice</div><div class="dice-row"><div class="die" id="die">—</div><button class="primary" id="roll">Roll dice</button></div></section>
  <section><div class="section-title">Game status</div><div class="status" id="status" aria-live="polite">Player 1, roll to begin your turn.</div><div id="choices" class="choices" style="margin-top:10px"></div><button class="secondary" id="challenge-test" style="margin-top:10px">Test anime search</button></section>
- <section><div class="section-title">How to play</div><div class="note">Roll a d6 and move one tile at a time. When you reach a junction, choose an available route to continue. The board contains loops, so routes can reconnect. Landing on ★ awards points. ! triggers a random score event. ? is reserved for future trivia challenges.</div></section>
+ <section><div class="section-title">How to play</div><div class="note">Roll a d6 and move one tile at a time. When you reach a junction, choose an available route to continue. The board contains loops, so routes can reconnect. Landing on ★ awards points. ! triggers a random score event. ? launches an anime-image trivia challenge.</div></section>
 </aside>
 </main>
 <footer>Prototype only · Trivia, online multiplayer, and saved game state are not implemented yet.</footer>
 <div class="challenge-overlay" id="challenge-overlay" role="dialog" aria-modal="true" aria-labelledby="challenge-title">
  <div class="challenge-dialog">
   <div class="eyebrow">Anime discovery test</div><h2 id="challenge-title">Which anime is this from?</h2>
-  <div class="note" id="challenge-instructions">Finding a random anime and searching Wikimedia Commons for a matching screenshot…</div>
+  <div class="note" id="challenge-instructions">Finding a random anime, then searching MyAnimeList picture and character galleries…</div>
   <div class="challenge-media" id="challenge-media"><div class="note">Searching…</div></div>
   <div class="challenge-answers" id="challenge-answers"></div>
   <div class="status" id="challenge-status" aria-live="polite">Searching for an image.</div>
@@ -150,53 +150,82 @@ const popularAnime=["Naruto","One Piece","Bleach","Dragon Ball Z","Death Note","
 function shuffle(items){return [...items].sort(()=>Math.random()-0.5)}
 async function startTriviaChallenge(){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
- overlay.style.display="flex";media.innerHTML='<div class="note">Searching for a screenshot…</div>';answers.innerHTML="";msg.textContent="Searching for an anime and a related image.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";
- let stage="anime catalogue";
+ overlay.style.display="flex";media.innerHTML='<div class="note">Searching MyAnimeList galleries…</div>';answers.innerHTML="";msg.textContent="Searching MyAnimeList for an anime and related gallery images.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";
+ let stage="MyAnimeList anime catalogue";
  try{
-  let anime,answer;
-  try{
-   const animeResponse=await fetch("https://api.jikan.moe/v4/random/anime");
-   if(!animeResponse.ok)throw new Error("HTTP "+animeResponse.status);
-   const animeJson=await animeResponse.json();anime=animeJson.data;answer=anime.title_english||anime.title;
-   if(!answer)throw new Error("No usable title in response");
-  }catch(error){
-   const fallback=["Naruto","One Piece","Bleach","Dragon Ball Z","Death Note","Attack on Titan","Fullmetal Alchemist: Brotherhood","Demon Slayer","Jujutsu Kaisen","My Hero Academia","Cowboy Bebop","Hunter x Hunter","Sailor Moon","Pokémon","Spy x Family","One Punch Man","Mob Psycho 100","Neon Genesis Evangelion","Sword Art Online","JoJo's Bizarre Adventure"];
-   answer=fallback[Math.floor(Math.random()*fallback.length)];
-   source.textContent="Anime catalogue unavailable; using a temporary test title. ";
-  }
+  const animeResponse=await fetch("https://api.jikan.moe/v4/random/anime");
+  if(!animeResponse.ok)throw new Error("MyAnimeList catalogue request failed (HTTP "+animeResponse.status+").");
+  const animeJson=await animeResponse.json(),anime=animeJson.data;
+  const answer=anime?.title_english||anime?.title;
+  if(!answer||!anime?.mal_id)throw new Error("The anime catalogue returned no usable title or MyAnimeList ID.");
   challengeAnswer=answer;
-  stage="image search";
-  // Wikimedia Commons rarely hosts copyrighted episode frames. Try a broad title search there,
-  // then use the anime catalogue's image only as an explicitly labelled fallback.
-  let page=null,info=null;
+
+  // Jikan exposes MyAnimeList's own anime-picture galleries and character galleries.
+  // This is anime-focused source discovery, unlike Wikimedia Commons' general file search.
+  let imageUrl="",imageLabel="",imageKind="";
+  stage="MyAnimeList picture gallery";
   try{
-   const searches=['"'+answer+'"',''+answer+' anime'];
-   for(const term of searches){
-    const commonsUrl="https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch="+encodeURIComponent(term)+"&gsrnamespace=6&gsrlimit=15&prop=imageinfo&iiprop=url&iiurlwidth=1000&format=json&origin=*";
-    const imageResponse=await fetch(commonsUrl);
-    if(!imageResponse.ok)continue;
-    const imageJson=await imageResponse.json();
-    const pages=Object.values(imageJson.query?.pages||{}).filter(p=>(p.imageinfo?.[0]?.thumburl||p.imageinfo?.[0]?.url)&&!/(logo|icon|flag|poster|cover|banner)/i.test(p.title));
-    if(pages.length){page=pages[Math.floor(Math.random()*pages.length)];info=page.imageinfo[0];break}
+   const picturesResponse=await fetch("https://api.jikan.moe/v4/anime/"+anime.mal_id+"/pictures");
+   if(picturesResponse.ok){
+    const picturesJson=await picturesResponse.json();
+    const pictures=(picturesJson.data||[]).map(item=>({
+     url:item.webp?.large_image_url||item.jpg?.large_image_url||item.webp?.image_url||item.jpg?.image_url
+    })).filter(item=>item.url);
+    if(pictures.length){
+     imageUrl=pictures[Math.floor(Math.random()*pictures.length)].url;
+     imageLabel="MyAnimeList picture gallery for "+answer;
+     imageKind="anime gallery image";
+    }
    }
-  }catch(error){source.textContent+="Commons search unavailable. "}
-  let imageUrl=info?.thumburl||info?.url, imageLabel=page?"Wikimedia Commons result: "+page.title:"";
-  if(!imageUrl && anime?.images?.jpg?.large_image_url){
-   imageUrl=anime.images.jpg.large_image_url;
-   imageLabel="Catalogue fallback: anime cover art for "+answer+" (not an episode screenshot)";
+  }catch(error){/* Continue to character gallery if the anime gallery is unavailable. */}
+
+  if(!imageUrl){
+   stage="MyAnimeList character gallery";
+   try{
+    const charactersResponse=await fetch("https://api.jikan.moe/v4/anime/"+anime.mal_id+"/characters");
+    if(charactersResponse.ok){
+     const charactersJson=await charactersResponse.json();
+     const characters=(charactersJson.data||[]).filter(item=>item.character?.mal_id&&(
+      item.character?.images?.webp?.image_url||item.character?.images?.jpg?.image_url
+     ));
+     if(characters.length){
+      const character=characters[Math.floor(Math.random()*characters.length)].character;
+      const characterName=character.name||"character";
+      const characterPicturesResponse=await fetch("https://api.jikan.moe/v4/characters/"+character.mal_id+"/pictures");
+      if(characterPicturesResponse.ok){
+       const characterPicturesJson=await characterPicturesResponse.json();
+       const pictures=(characterPicturesJson.data||[]).map(item=>(
+        item.webp?.large_image_url||item.jpg?.large_image_url||item.webp?.image_url||item.jpg?.image_url
+       )).filter(Boolean);
+       if(pictures.length)imageUrl=pictures[Math.floor(Math.random()*pictures.length)];
+      }
+      if(!imageUrl)imageUrl=character.images.webp?.image_url||character.images.jpg?.image_url;
+      if(imageUrl){
+       imageLabel="MyAnimeList character gallery: "+characterName+" ("+answer+")";
+       imageKind="character image";
+      }
+     }
+    }
+   }catch(error){/* Use the anime entry image only as a clearly labelled last resort. */}
   }
-  if(!imageUrl)throw new Error('No image found for "'+answer+'". Commons had no matching file and the anime catalogue had no cover image.');
-  const img=document.createElement("img");img.alt=imageLabel||"Anime image for "+answer;img.src=imageUrl;
+
+  if(!imageUrl && anime.images?.webp?.large_image_url||!imageUrl && anime.images?.jpg?.large_image_url){
+   imageUrl=anime.images?.webp?.large_image_url||anime.images?.jpg?.large_image_url;
+   imageLabel="MyAnimeList catalogue cover art for "+answer+" (not an episode frame)";
+   imageKind="cover art";
+  }
+  if(!imageUrl)throw new Error('MyAnimeList/Jikan returned no usable gallery or catalogue image for "'+answer+'".');
+  const img=document.createElement("img");img.alt=imageLabel;img.src=imageUrl;
   img.onload=()=>{media.replaceChildren(img)};
-  img.onerror=()=>{media.innerHTML='<div class="note">The image host did not load this result. Try again.</div>';answers.innerHTML="";msg.textContent="The search returned an image, but the image file failed to load.";next.textContent="Try again";next.style.display="block";challengeBusy=false};
+  img.onerror=()=>{media.innerHTML='<div class="note">MyAnimeList returned an image URL, but it failed to load. Try again.</div>';answers.innerHTML="";msg.textContent="The image URL failed to load. This is a source/image-host failure, not an answer failure.";next.textContent="Try again";next.style.display="block";challengeBusy=false};
   const wrong=shuffle(popularAnime.filter(title=>title.toLowerCase()!==answer.toLowerCase())).slice(0,3);
   const options=shuffle([answer,...wrong]);answers.innerHTML="";
   options.forEach(title=>{const button=document.createElement("button");button.textContent=title;button.onclick=()=>resolveTriviaAnswer(title,button);answers.appendChild(button)});
-  msg.textContent=page?"Choose the anime you think this image belongs to.": "Image loaded, but this is cover art rather than a scene screenshot; the screenshot-search source still needs replacing.";
-  source.textContent+=(source.textContent?" ":"")+imageLabel;
+  msg.textContent="Choose the anime this "+imageKind+" is associated with.";
+  source.textContent="Source: "+imageLabel+". MyAnimeList galleries can contain promotional art or character pictures; these are not guaranteed to be episode screenshots.";
   challengeBusy=false;
  }catch(error){
-  media.innerHTML='<div class="note">No image loaded.</div>';msg.textContent=stage+" failed: "+(error.message||"Network request failed")+". The current static-site image sources may not provide a usable screenshot.";source.textContent+="A proper episode-frame search needs a reliable screenshot source, not just a general image host.";next.textContent="Try again";next.style.display="block";challengeBusy=false;
+  media.innerHTML='<div class="note">No image loaded.</div>';msg.textContent=stage+" failed: "+(error.message||"Network request failed")+". MyAnimeList/Jikan did not return a usable image for this entry.";source.textContent+="MyAnimeList provides anime and character galleries, but these images are not guaranteed to be episode frames.";next.textContent="Try again";next.style.display="block";challengeBusy=false;
  }
 }
 function resolveTriviaAnswer(selected,button){
