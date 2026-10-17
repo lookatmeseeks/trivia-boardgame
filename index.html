@@ -46,7 +46,7 @@ button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:11px 14p
 <aside class="side">
  <section><div class="section-title">Current turn</div><div class="current"><div class="avatar" id="current-avatar"></div><div><strong id="current-name">Player 1</strong><small id="turn-note">Ready to roll</small></div></div></section>
  <section><div class="section-title">Dice</div><div class="dice-row"><div class="die" id="die">—</div><button class="primary" id="roll">Roll dice</button></div></section>
- <section><div class="section-title">Game status</div><div class="status" id="status" aria-live="polite">Player 1, roll to begin your turn.</div><div id="choices" class="choices" style="margin-top:10px"></div><button class="secondary" id="challenge-test" style="margin-top:10px">Test anime search</button></section>
+ <section><div class="section-title">Game status</div><div class="status" id="status" aria-live="polite">Player 1, roll to begin your turn.</div><div id="choices" class="choices" style="margin-top:10px"></div><div style="display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin-top:10px"><label for="challenge-mode" class="note">Test clue type</label><select id="challenge-mode" style="width:100%;padding:10px;border-radius:9px;background:#22283b;color:#f5f5ff;border:1px solid #424a65"><option value="random">Random mix</option><option value="easy">Easy — covers / characters</option><option value="location">Hard — locations / scenery</option><option value="attack">Hard — attacks / battles</option></select><button class="secondary" id="challenge-test">Test selected clue</button></div></section>
  <section><div class="section-title">How to play</div><div class="note">Roll a d6 and move one tile at a time. When you reach a junction, choose an available route to continue. The board contains loops, so routes can reconnect. Landing on ★ awards points. ! triggers a random score event. ? launches an anime-image trivia challenge.</div></section>
 </aside>
 </main>
@@ -174,8 +174,9 @@ const sceneSearchTitles=[
  {title:"Cowboy Bebop",tag:"cowboy_bebop",type:"location",tagHint:"scenery"},
  {title:"Made in Abyss",tag:"made_in_abyss",type:"location",tagHint:"scenery"}
 ];
-async function findSceneImage(){
- const candidate=sceneSearchTitles[Math.floor(Math.random()*sceneSearchTitles.length)];
+async function findSceneImage(mode="random"){
+ const candidates=mode==="location"?sceneSearchTitles.filter(x=>x.type==="location"):mode==="attack"?sceneSearchTitles.filter(x=>x.type==="attack"):sceneSearchTitles;
+ const candidate=candidates[Math.floor(Math.random()*candidates.length)];
  const tags=encodeURIComponent(candidate.tag+" "+candidate.tagHint+" rating:g");
  const endpoint="https://safebooru.donmai.us/posts.json?limit=100&tags="+tags;
  const response=await fetch(endpoint,{headers:{"Accept":"application/json"}});
@@ -186,14 +187,20 @@ async function findSceneImage(){
  const post=usable[Math.floor(Math.random()*usable.length)];
  return {title:candidate.title,url:post.large_file_url||post.file_url,type:candidate.type,difficulty:3,label:candidate.type==="attack"?"Battle / attack scene":"Location / scenery",sourceUrl:"https://safebooru.donmai.us/posts/"+post.id};
 }
-async function startTriviaChallenge(){
+async function startTriviaChallenge(mode=document.querySelector("#challenge-mode")?.value||"random"){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
  overlay.style.display="flex";media.innerHTML='<div class="note">Choosing a clue image…</div>';answers.innerHTML="";msg.textContent="Choosing an image and clue type.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";
  let entry;
  try{
-  // Prefer a safe-rated scene/setting image. If that external catalogue is blocked,
-  // use the verified starter pool rather than preventing the trivia round from working.
-  try{entry=await findSceneImage()}catch(sceneError){entry=starterImagePool[Math.floor(Math.random()*starterImagePool.length)];entry={...entry,sourceUrl:"https://myanimelist.net/"}}
+  // Explicit tests never silently fall back to easy images: this lets the user
+  // see whether the selected scene category is actually working.
+  if(mode==="easy"){
+   entry=starterImagePool[Math.floor(Math.random()*starterImagePool.length)];
+  }else if(mode==="location"||mode==="attack"){
+   entry=await findSceneImage(mode);
+  }else{
+   try{entry=await findSceneImage("random")}catch(sceneError){entry=starterImagePool[Math.floor(Math.random()*starterImagePool.length)];}
+  }
   challengeAnswer=entry.title;
   const img=document.createElement("img");img.alt=entry.label;img.src=entry.url;
   img.onload=()=>{media.replaceChildren(img)};
@@ -224,7 +231,7 @@ function resolveTriviaAnswer(selected,button){
  else{msg.textContent="Incorrect. The intended answer was "+challengeAnswer+". No points awarded."}
  updateUI();next.textContent="Continue turn";next.style.display="block";document.querySelector("#challenge-source").textContent+=" · Answer: "+challengeAnswer;
 }
-document.querySelector("#challenge-test").addEventListener("click",startTriviaChallenge);
+document.querySelector("#challenge-test").addEventListener("click",()=>startTriviaChallenge(document.querySelector("#challenge-mode").value));
 document.querySelector("#challenge-next").addEventListener("click",()=>{
  if(!challengeResolved){startTriviaChallenge();return}
  document.querySelector("#challenge-overlay").style.display="none";challengeResolved=true;finishTurn();
