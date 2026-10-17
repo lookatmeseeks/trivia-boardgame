@@ -183,7 +183,7 @@ function addCustomAnime(){
 function allAnimeTitles(){return [...new Set([...popularAnime,...customAnimeList.map(x=>x.title)].map(s=>s.trim()).filter(Boolean))]}
 function getAllImageEntries(){return [...starterImagePool,...customAnimeList.filter(x=>x.url).map(x=>({...x}))]}
 function customSceneCandidates(){
- return customAnimeList.filter(x=>!sceneSearchTitles.some(s=>s.title.toLowerCase()===x.title.toLowerCase())).map((x,i)=>({title:x.title,tag:x.tag||x.title.toLowerCase().replace(/[^a-z0-9 ]/g,"").trim().replace(/\s+/g,"_"),type:i%2===0?"attack":"location",tagHint:i%2===0?"battle":"scenery"}));
+ return customAnimeList.filter(x=>x.tag&&!sceneSearchTitles.some(s=>s.title.toLowerCase()===x.title.toLowerCase())).map((x,i)=>({title:x.title,tag:x.tag,type:i%2===0?"attack":"location",tagHint:i%2===0?"battle":"scenery"}));
 }
 const starterImagePool=[
  {title:"Attack on Titan",url:"https://myanimelist.net/images/anime/10/47347.jpg",type:"cover",difficulty:1,label:"Anime cover"},
