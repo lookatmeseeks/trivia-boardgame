@@ -47,10 +47,6 @@ button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:11px 14p
  <section><div class="section-title">Current turn</div><div class="current"><div class="avatar" id="current-avatar"></div><div><strong id="current-name">Player 1</strong><small id="turn-note">Ready to roll</small></div></div></section>
  <section><div class="section-title">Dice</div><div class="dice-row"><div class="die" id="die">—</div><button class="primary" id="roll">Roll dice</button></div></section>
  <section><div class="section-title">Game status</div><div class="status" id="status" aria-live="polite">Player 1, roll to begin your turn.</div><div id="choices" class="choices" style="margin-top:10px"></div><div style="display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin-top:10px"><label for="challenge-mode" class="note">Test clue type</label><select id="challenge-mode" style="width:100%;padding:10px;border-radius:9px;background:#22283b;color:#f5f5ff;border:1px solid #424a65"><option value="random">Random mix</option><option value="easy">Easy — covers / characters</option><option value="location">Hard — locations / scenery</option><option value="attack">Hard — attacks / battles</option></select><button class="secondary" id="challenge-test">Test selected clue</button></div></section>
- <section><div class="section-title">My anime list</div><div class="note" style="margin-bottom:8px">Add one anime per line. Format: Title, or Title | direct image URL | Safebooru anime tag. Titles become answer choices; image URLs become easy clues; an explicit tag lets hard scene searches target that anime.</div><textarea id="anime-list-input" rows="5" placeholder="Example:
-Haibane Renmei
-The Twelve Kingdoms
-Obscure title | https://example.com/cover.jpg" style="width:100%;resize:vertical;padding:10px;border-radius:9px;background:#111521;color:#f5f5ff;border:1px solid #424a65;font:inherit"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button class="primary" id="anime-list-add" style="min-width:0">Add titles</button><button class="secondary" id="anime-list-clear" style="width:auto">Clear</button></div><div class="note" id="anime-list-status" style="margin-top:8px" aria-live="polite"></div><div id="anime-list-display" class="note" style="margin-top:8px;max-height:150px;overflow:auto;white-space:pre-wrap"></div></section>
  <section><div class="section-title">How to play</div><div class="note">Roll a d6 and move one tile at a time. When you reach a junction, choose an available route to continue. The board contains loops, so routes can reconnect. Landing on ★ awards points. ! triggers a random score event. ? launches an anime-image trivia challenge.</div></section>
 </aside>
 </main>
@@ -152,38 +148,43 @@ function resetGame(){document.querySelector("#challenge-overlay").style.display=
 
 const popularAnime=["Naruto","One Piece","Bleach","Dragon Ball Z","Death Note","Attack on Titan","Fullmetal Alchemist: Brotherhood","Demon Slayer","Jujutsu Kaisen","My Hero Academia","Cowboy Bebop","Hunter x Hunter","Sailor Moon","Pokémon","Spy x Family","One Punch Man","Mob Psycho 100","Neon Genesis Evangelion","Sword Art Online","JoJo's Bizarre Adventure","Code Geass","Chainsaw Man","Vinland Saga","Frieren: Beyond Journey's End","Made in Abyss","Black Clover","Fairy Tail","Haikyuu!!","Tokyo Ghoul","Steins;Gate"];
 function shuffle(items){return [...items].sort(()=>Math.random()-0.5)}
-const ANIME_LIST_STORAGE_KEY="anime-party-custom-anime-list-v1";
-let customAnimeList=[];
-function loadCustomAnimeList(){
- try{const saved=JSON.parse(localStorage.getItem(ANIME_LIST_STORAGE_KEY)||"[]");customAnimeList=Array.isArray(saved)?saved.filter(x=>x&&typeof x.title==="string"&&x.title.trim()):[]}catch{customAnimeList=[]}
- renderCustomAnimeList();
+let lastAnimeBatch=[];
+let kitsuAnimeCount=null;
+async function fetchKitsuAnimeBatch(){
+ const base="https://kitsu.io/api/edge/anime?page%5Blimit%5D=20&page%5Boffset%5D=";
+ const request=async offset=>{
+  const response=await fetch(base+offset+"&sort=id",{headers:{Accept:"application/vnd.api+json"}});
+  if(!response.ok)throw new Error("Kitsu API returned HTTP "+response.status);
+  return response.json();
+ };
+ if(!kitsuAnimeCount){
+  const first=await request(0);
+  kitsuAnimeCount=Number(first.meta&&first.meta.count)||0;
+  if(!kitsuAnimeCount)throw new Error("Kitsu returned no anime catalogue count");
+  const firstBatch=(first.data||[]).map(kitsuAnimeToEntry).filter(Boolean);
+  if(kitsuAnimeCount<=20){lastAnimeBatch=firstBatch;return firstBatch;}
+ }
+ const maxOffset=Math.max(0,kitsuAnimeCount-20);
+ const offset=Math.floor(Math.random()*(maxOffset+1));
+ const payload=await request(offset);
+ const batch=(payload.data||[]).map(kitsuAnimeToEntry).filter(Boolean);
+ if(!batch.length)throw new Error("Kitsu returned no usable anime images");
+ lastAnimeBatch=batch;
+ return batch;
 }
-function saveCustomAnimeList(){try{localStorage.setItem(ANIME_LIST_STORAGE_KEY,JSON.stringify(customAnimeList))}catch(error){document.querySelector("#anime-list-status").textContent="Could not save to this browser: "+error.message}}
-function renderCustomAnimeList(){
- const display=document.querySelector("#anime-list-display"),status=document.querySelector("#anime-list-status");
- if(!display||!status)return;
- display.textContent=customAnimeList.length?customAnimeList.map((x,i)=>(i+1)+". "+x.title+(x.url?"  [image added]":x.tag?"  [scene tag added]":"")).join("\n"):"No custom anime added yet."; 
- status.textContent=customAnimeList.length+" custom title"+(customAnimeList.length===1?"":"s")+" saved in this browser.";
+function kitsuAnimeToEntry(item){
+ const a=item&&item.attributes;
+ if(!a||!a.posterImage)return null;
+ const title=(a.titles&&(a.titles.en||a.titles.en_jp))||a.canonicalTitle;
+ const poster=a.posterImage.original||a.posterImage.large||a.posterImage.medium||a.posterImage.small;
+ if(!title||!poster)return null;
+ return {title,url:poster,type:"cover",difficulty:1,label:"Anime cover",sourceUrl:"https://kitsu.io/anime/"+item.id};
 }
-function addCustomAnime(){
- const input=document.querySelector("#anime-list-input"),raw=input.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
- let added=0,skipped=0;
- raw.forEach(line=>{
-  const split=line.split("|"),title=(split.shift()||"").trim(),url=(split.shift()||"").trim(),tag=split.join("|").trim();
-  if(!title){skipped++;return}
-  if(customAnimeList.some(x=>x.title.toLowerCase()===title.toLowerCase())){skipped++;return}
-  if(url&&!/^https?:\/\//i.test(url)){skipped++;return}
-  customAnimeList.push({title,url,tag,type:url?"cover":null,difficulty:1,label:url?"User-added image":"Custom anime title"});
-  added++;
- });
- saveCustomAnimeList();renderCustomAnimeList();input.value="";
- if(added===0)document.querySelector("#anime-list-status").textContent="No new titles added. Check for duplicates or invalid image URLs."; 
- else if(skipped)document.querySelector("#anime-list-status").textContent="Added "+added+"; skipped "+skipped+" duplicate/invalid line(s).";
-}
-function allAnimeTitles(){return [...new Set([...popularAnime,...customAnimeList.map(x=>x.title)].map(s=>s.trim()).filter(Boolean))]}
-function getAllImageEntries(){return [...starterImagePool,...customAnimeList.filter(x=>x.url).map(x=>({...x}))]}
-function customSceneCandidates(){
- return customAnimeList.filter(x=>x.tag&&!sceneSearchTitles.some(s=>s.title.toLowerCase()===x.title.toLowerCase())).map((x,i)=>({title:x.title,tag:x.tag,type:i%2===0?"attack":"location",tagHint:i%2===0?"battle":"scenery"}));
+async function fetchRandomKitsuAnime(){
+ const batch=await fetchKitsuAnimeBatch();
+ const entry=batch[Math.floor(Math.random()*batch.length)];
+ if(!entry)throw new Error("Kitsu returned no usable anime cover images");
+ return entry;
 }
 const starterImagePool=[
  {title:"Attack on Titan",url:"https://myanimelist.net/images/anime/10/47347.jpg",type:"cover",difficulty:1,label:"Anime cover"},
@@ -227,17 +228,18 @@ async function findSceneImage(mode="random"){
 }
 async function startTriviaChallenge(mode=document.querySelector("#challenge-mode")?.value||"random"){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
- overlay.style.display="flex";media.innerHTML='<div class="note">Choosing a clue image…</div>';answers.innerHTML="";msg.textContent="Choosing an image and clue type.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";
+ overlay.style.display="flex";media.innerHTML='<div class="note">Choosing a clue image…</div>';answers.innerHTML="";msg.textContent="Choosing an image and clue type.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";lastAnimeBatch=[];
  let entry;
  try{
   // Explicit tests never silently fall back to easy images: this lets the user
   // see whether the selected scene category is actually working.
   if(mode==="easy"){
-   const imageEntries=getAllImageEntries();entry=imageEntries[Math.floor(Math.random()*imageEntries.length)];
+   entry=await fetchRandomKitsuAnime();
   }else if(mode==="location"||mode==="attack"){
    entry=await findSceneImage(mode);
   }else{
-   try{entry=await findSceneImage("random")}catch(sceneError){entry=starterImagePool[Math.floor(Math.random()*starterImagePool.length)];}
+   try{entry=Math.random()<0.5?await findSceneImage("random"):await fetchRandomKitsuAnime()}
+   catch(sceneError){entry=await fetchRandomKitsuAnime();}
   }
   challengeAnswer=entry.title;
   const img=document.createElement("img");img.alt=entry.label;img.src=entry.url;
@@ -255,7 +257,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
   document.querySelector("#challenge-title").textContent="Which anime is this from?";
   document.querySelector("#challenge-instructions").textContent=typeNames[entry.type]+" clue · "+difficultyNames[entry.difficulty];
   msg.textContent="Identify the anime from the image.";
-  source.innerHTML="Clue: "+entry.label+". Source: "+(entry.sourceUrl||"MyAnimeList image CDN")+(entry.sourceUrl&&entry.type!=="cover"&&entry.type!=="character"?' · <a href="'+entry.sourceUrl+'" target="_blank" rel="noopener" style="color:#66e3ef">View source post</a>':"");
+  source.innerHTML="Clue: "+entry.label+". Source: "+(entry.sourceUrl||"Safebooru")+(entry.sourceUrl&&entry.type!=="cover"&&entry.type!=="character"?' · <a href="'+entry.sourceUrl+'" target="_blank" rel="noopener" style="color:#66e3ef">View source post</a>':"");
   challengeBusy=false;
  }catch(error){
   media.innerHTML='<div class="note">No image loaded.</div>';msg.textContent="Image search failed: "+(error.message||"Network request failed")+". Try again.";next.textContent="Try again";next.style.display="block";challengeBusy=false;
@@ -270,14 +272,11 @@ function resolveTriviaAnswer(selected,button){
  updateUI();next.textContent="Continue turn";next.style.display="block";document.querySelector("#challenge-source").textContent+=" · Answer: "+challengeAnswer;
 }
 document.querySelector("#challenge-test").addEventListener("click",()=>startTriviaChallenge(document.querySelector("#challenge-mode").value));
-document.querySelector("#anime-list-add").addEventListener("click",addCustomAnime);
-document.querySelector("#anime-list-clear").addEventListener("click",()=>{if(!customAnimeList.length)return;customAnimeList=[];saveCustomAnimeList();renderCustomAnimeList()});
 document.querySelector("#challenge-next").addEventListener("click",()=>{
  if(!challengeResolved){startTriviaChallenge();return}
  document.querySelector("#challenge-overlay").style.display="none";challengeResolved=true;finishTurn();
 });
 document.querySelector("#roll").addEventListener("click",roll);document.querySelector("#reset").addEventListener("click",resetGame);
-loadCustomAnimeList();
 resetGame();
 </script>
 </body>
