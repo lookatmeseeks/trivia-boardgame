@@ -1,7 +1,3 @@
-let localTriviaAnswered=[];
-let localTriviaCorrect=[];
-let localTriviaIndex=0;
-
 async function startTriviaChallenge(mode=document.querySelector("#challenge-mode")?.value||"random"){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
  overlay.style.display="flex";media.innerHTML='<div class="note">Choosing a clue image…</div>';answers.innerHTML="";msg.textContent="Choosing an image and clue type.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";lastAnimeBatch=[];
@@ -27,14 +23,10 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
   };
   const wrong=shuffle(allAnimeTitles().filter(title=>title.toLowerCase()!==entry.title.toLowerCase())).slice(0,3);
   const options=shuffle([entry.title,...wrong]);
-  if(typeof mpRoomId!=="undefined"&&mpRoomId){
-   challengeBusy=false;
-   await mpStartSharedTrivia(entry,options);
-   return;
-  }
-  localTriviaAnswered=players.map(()=>false);localTriviaCorrect=players.map(()=>false);localTriviaIndex=0;
-  answers.innerHTML="";
-  options.forEach(title=>{const button=document.createElement("button");button.textContent=title;button.onclick=()=>resolveTriviaAnswer(title,button);answers.appendChild(button)});
+  if(typeof mpRoomId==="undefined"||!mpRoomId)throw new Error("Create or join an online room before starting a question.");
+  challengeBusy=false;
+  await mpStartSharedTrivia(entry,options);
+  return;
   const typeNames={cover:"Cover",character:"Character",location:"Location / scenery",attack:"Attack / battle scene"};
   const difficultyNames={1:"Easy",2:"Medium",3:"Hard"};
   document.querySelector("#challenge-title").textContent="Which anime is this from?";
@@ -52,50 +44,20 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
 }
 async function resolveTriviaAnswer(selected,button){
  if(challengeBusy||challengeResolved)return;
- if(typeof mpRoomId!=="undefined"&&mpRoomId){
-  if(mpTriviaAnswered())return;
-  challengeBusy=true;document.querySelectorAll("#challenge-answers button").forEach(b=>b.disabled=true);
-  try{await mpSubmitTriviaAnswer(selected)}catch(error){document.querySelector("#challenge-status").textContent="Answer could not be submitted: "+(error.message||error);}
-  finally{challengeBusy=false;if(mpChallenge&&typeof mpRenderSharedChallenge==="function")mpRenderSharedChallenge(mpChallenge);}
-  return;
- }
- if((typeof mpCanAct==="function"&&!mpCanAct()))return;
- const msg=document.querySelector("#challenge-status"),next=document.querySelector("#challenge-next");
- document.querySelectorAll("#challenge-answers button").forEach(b=>b.disabled=true);
- const answeringPlayer=(current+localTriviaIndex)%players.length;
- const isCorrect=selected===challengeAnswer;
- localTriviaAnswered[answeringPlayer]=true;localTriviaCorrect[answeringPlayer]=isCorrect;
- if(isCorrect){players[answeringPlayer].score+=answeringPlayer===current?2:1;}
- localTriviaIndex++;
- updateUI();
- if(localTriviaIndex<players.length){
-  const nextPlayer=(current+localTriviaIndex)%players.length;
-  msg.textContent=players[answeringPlayer].name+(isCorrect?" answered correctly.":" answered incorrectly.")+" Next: "+players[nextPlayer].name+".";
-  document.querySelector("#challenge-instructions").textContent="Pass the device to "+players[nextPlayer].name+", then let them choose an answer.";
-  document.querySelectorAll("#challenge-answers button").forEach(b=>{b.disabled=false;b.onclick=()=>resolveTriviaAnswer(b.textContent,b)});
-  return;
- }
- challengeResolved=true;
- msg.textContent="All players answered. Correct answer: "+challengeAnswer+". "+players.map((p,i)=>p.name+": "+(localTriviaCorrect[i]?(i===current?"+2":"+1"):"0")).join(" · ")+".";
- document.querySelector("#challenge-instructions").textContent="Question complete.";
- next.textContent="Continue turn";next.style.display="block";
- document.querySelector("#challenge-source").textContent+=" · Answer: "+challengeAnswer;
+ if(typeof mpRoomId==="undefined"||!mpRoomId){document.querySelector("#challenge-status").textContent="Create or join an online room before answering.";return}
+ if(mpTriviaAnswered())return;
+ challengeBusy=true;document.querySelectorAll("#challenge-answers button").forEach(b=>b.disabled=true);
+ try{await mpSubmitTriviaAnswer(selected)}catch(error){document.querySelector("#challenge-status").textContent="Answer could not be submitted: "+(error.message||error);}
+ finally{challengeBusy=false;if(mpChallenge&&typeof mpRenderSharedChallenge==="function")mpRenderSharedChallenge(mpChallenge);}
 }
 document.querySelector("#challenge-test").addEventListener("click",()=>{
- if(typeof mpRoomId!=="undefined"&&mpRoomId&&!mpCanAct()){
-  document.querySelector("#challenge-overlay").style.display="flex";
-  document.querySelector("#challenge-status").textContent="Only the active player can start a synchronized question.";
-  return;
- }
+ if(!mpRoomId){document.querySelector("#challenge-overlay").style.display="flex";document.querySelector("#challenge-status").textContent="Create or join an online room first.";return}
+ if(!mpCanAct()){document.querySelector("#challenge-overlay").style.display="flex";document.querySelector("#challenge-status").textContent="Only the active player can start a synchronized question.";return}
  startTriviaChallenge(document.querySelector("#challenge-mode").value);
 });
 document.querySelector("#challenge-next").addEventListener("click",()=>{
- if(typeof mpRoomId!=="undefined"&&mpRoomId){
-  if(!mpChallenge||mpChallenge.status!=="resolved"||!mpCanAct())return;
-  document.querySelector("#challenge-overlay").style.display="none";mpChallenge=null;challengeResolved=true;finishTurn();return;
- }
- if(!challengeResolved){startTriviaChallenge();return}
- document.querySelector("#challenge-overlay").style.display="none";challengeResolved=true;finishTurn();
+ if(!mpRoomId||!mpChallenge||mpChallenge.status!=="resolved"||!mpCanAct())return;
+ document.querySelector("#challenge-overlay").style.display="none";mpChallenge=null;challengeResolved=true;finishTurn();
 });
 function mpRenderSharedChallenge(challenge){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
@@ -112,12 +74,14 @@ function mpRenderSharedChallenge(challenge){
  (challenge.options||[]).forEach(option=>{const button=document.createElement("button");button.textContent=option;button.disabled=alreadyAnswered||resolved||challengeBusy;button.onclick=()=>resolveTriviaAnswer(option,button);answers.appendChild(button)});
  if(resolved){
   const correctIds=challenge.correctUserIds||[];
-  msg.textContent="All players answered. "+correctIds.length+" correct. Answer: "+challenge.correctAnswer+". Scores: "+players.map(p=>p.name+" "+p.score).join(", ")+".";
+  msg.textContent=challenge.winnerName
+   ?challenge.winnerName+" answered correctly first and earns 2 points. Answer: "+challenge.correctAnswer+"."
+   :"Nobody answered correctly. The answer was "+challenge.correctAnswer+".";
   next.textContent="Continue turn";next.style.display=mpCanAct()?"block":"none";next.disabled=!mpCanAct();
  }else{
   const count=(challenge.answeredUserIds||[]).length;
-  if(alreadyAnswered)msg.textContent="Your answer is locked in. Waiting for everyone else. ("+count+"/"+players.length+" answered)";
-  else msg.textContent="Choose one answer. You only get one attempt. ("+count+"/"+players.length+" answered)";
+  if(alreadyAnswered)msg.textContent="Your answer is locked in. Waiting for another player. ("+count+"/"+players.length+" answered)";
+  else msg.textContent="Choose one answer. The first correct answer ends the question. ("+count+"/"+players.length+" answered)";
   next.style.display="none";
  }
  source.textContent=challenge.imageLabel||"Anime clue";
