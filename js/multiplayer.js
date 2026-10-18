@@ -21,7 +21,7 @@ async function mpEnsureClient(){
  }
 }
 function mpCurrentSnapshot(){
- return {updatedBy:mpUserId,mediumAuthors:typeof getMediumAuthors==="function"?getMediumAuthors():[],mediumAuthorSelections:typeof getMediumAuthorIds==="function"?mediumAuthorSelections.map(a=>({id:a.id,name:a.name})):[],tilePresets:typeof tilePresets!=="undefined"?tilePresets:[],presetSequence:typeof presetSequence!=="undefined"?presetSequence:1,players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—",challenge:mpChallenge,tileTypes,roundLimit,roundsCompleted};
+ return {updatedBy:mpUserId,mediumAuthors:typeof getMediumAuthors==="function"?getMediumAuthors():[],mediumAuthorSelections:typeof getMediumAuthorIds==="function"?mediumAuthorSelections.map(a=>({id:a.id,name:a.name})):[],tilePresets:typeof tilePresets!=="undefined"?tilePresets:[],presetSequence:typeof presetSequence!=="undefined"?presetSequence:1,youtubeMediaPool:typeof youtubeMediaPool!=="undefined"?youtubeMediaPool:[],players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—",challenge:mpChallenge,tileTypes,roundLimit,roundsCompleted};
 }
 function mpStateChanged(){
  if(!mpRoomId||mpApplyingState||mpRoomStatus!=="playing")return;
@@ -70,6 +70,7 @@ function mpApplySnapshot(state){
   if(state.tileTypes&&typeof state.tileTypes==="object")tileTypes=state.tileTypes;
   if(Array.isArray(state.tilePresets)){tilePresets=state.tilePresets.filter(p=>p&&typeof p.id==="string"&&typeof p.name==="string"&&typeof p.color==="string"&&Array.isArray(p.events)).map(p=>({id:p.id,name:p.name,color:p.color,events:p.events.filter(id=>typeof id==="string")}));}
   if(Number.isFinite(Number(state.presetSequence))&&Number(state.presetSequence)>0)presetSequence=Number(state.presetSequence);
+  if(Array.isArray(state.youtubeMediaPool))youtubeMediaPool=state.youtubeMediaPool.filter(item=>item&&typeof item.id==="string"&&typeof item.videoId==="string"&&typeof item.answer==="string"&&["soundtrack-clip","opening-clip"].includes(item.eventType)).map(item=>({id:item.id,eventType:item.eventType,videoId:item.videoId,videoUrl:typeof item.videoUrl==="string"?item.videoUrl:"https://www.youtube.com/watch?v="+item.videoId,videoTitle:typeof item.videoTitle==="string"?item.videoTitle:"",answer:item.answer,startSeconds:Math.max(0,Number(item.startSeconds)||0),approved:true}));
   if(Array.isArray(state.mediumAuthorSelections)){mediumAuthorSelections=state.mediumAuthorSelections.filter(a=>a&&typeof a.name==="string").map(a=>({id:typeof a.id==="string"?a.id:"",name:a.name}));mediumAuthors=mediumAuthorSelections.map(a=>a.name)}else if(Array.isArray(state.mediumAuthors)){mediumAuthors=state.mediumAuthors.filter(x=>typeof x==="string");mediumAuthorSelections=mediumAuthors.map(name=>({id:"",name}))}renderMediumAuthorSelections();
   if(Number.isFinite(Number(state.roundLimit))&&Number(state.roundLimit)>0)roundLimit=Number(state.roundLimit);
   if(Number.isFinite(Number(state.roundsCompleted)))roundsCompleted=Number(state.roundsCompleted);
@@ -159,7 +160,7 @@ document.querySelector("#reset").addEventListener("click",()=>{if(mpRoomId&&!mpI
 async function mpStartSharedTrivia(entry,options){
  if(!mpRoomId)return false;
  if(!mpCanAct())throw new Error("Only the active player can start this question.");
- const question={imageUrl:entry.url,imageLabel:entry.label,type:entry.type,difficulty:entry.difficulty,sourceUrl:entry.sourceUrl||"",sourceCredit:entry.sourceCredit||"",options};
+ const question={imageUrl:entry.url||"",imageLabel:entry.label,type:entry.type,difficulty:entry.difficulty,sourceUrl:entry.sourceUrl||"",sourceCredit:entry.sourceCredit||"",options,mediaType:entry.videoId?"youtube":"image",videoId:entry.videoId||"",videoTitle:entry.videoTitle||"",startSeconds:Math.max(0,Number(entry.startSeconds)||0),durationSeconds:entry.videoId?15:0,clipEndsAt:entry.videoId?Date.now()+15000:0};
  const base=mpCurrentSnapshot();
  const {data,error}=await mpClient.rpc("start_shared_trivia",{p_code:mpRoomCode,p_state:base,p_question:question,p_answer:entry.title});
  if(error)throw error;
