@@ -100,7 +100,7 @@ function youtubeVideoId(value){
  try{
   const url=new URL(String(value||"").trim());
   if(url.hostname==="youtu.be")return url.pathname.split("/").filter(Boolean)[0]||"";
-  if(!/(^|\\.)youtube\\.com$/i.test(url.hostname))return "";
+  if(!/(^|\.)youtube\.com$/i.test(url.hostname))return "";
   if(url.pathname==="/watch")return url.searchParams.get("v")||"";
   const parts=url.pathname.split("/").filter(Boolean);
   if(["embed","shorts","live"].includes(parts[0]))return parts[1]||"";
