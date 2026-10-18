@@ -21,7 +21,7 @@ async function mpEnsureClient(){
  }
 }
 function mpCurrentSnapshot(){
- return {updatedBy:mpUserId,mediumAuthors:typeof getMediumAuthors==="function"?getMediumAuthors():[],mediumAuthorSelections:typeof getMediumAuthorIds==="function"?mediumAuthorSelections.map(a=>({id:a.id,name:a.name})):[],players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—",challenge:mpChallenge,tileTypes,roundLimit,roundsCompleted};
+ return {updatedBy:mpUserId,mediumAuthors:typeof getMediumAuthors==="function"?getMediumAuthors():[],mediumAuthorSelections:typeof getMediumAuthorIds==="function"?mediumAuthorSelections.map(a=>({id:a.id,name:a.name})):[],tilePresets:typeof tilePresets!=="undefined"?tilePresets:[],presetSequence:typeof presetSequence!=="undefined"?presetSequence:1,players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—",challenge:mpChallenge,tileTypes,roundLimit,roundsCompleted};
 }
 function mpStateChanged(){
  if(!mpRoomId||mpApplyingState||mpRoomStatus!=="playing")return;
