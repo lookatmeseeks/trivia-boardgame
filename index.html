@@ -11,7 +11,7 @@
 <main>
 <aside class="scoreboard-panel"><div class="section-title">Scoreboard</div><div class="players" id="players"></div><button class="secondary" id="reset" style="margin-top:10px">Restart game</button></aside>
 <section class="board-wrap">
- <div class="board-top"><div><div class="eyebrow">The board</div><strong>Pick a path. Roll the dice. Keep moving.</strong></div><div class="note">Image · Shop · Co-op tiles</div></div>
+ <div class="board-top"><div><div class="eyebrow">The board</div><strong>Pick a path. Roll the dice. Keep moving.</strong></div><div class="note board-legend"><span class="legend-dot easy-dot"></span> Easy <span class="legend-dot medium-dot"></span> Medium <span class="legend-dot hard-dot"></span> Hard · Shop · Co-op</div></div>
  <svg id="board" viewBox="0 0 900 600" role="img" aria-label="Board with branching paths and loops"></svg>
 </section>
 <aside class="side">
@@ -33,10 +33,12 @@
   <label for="round-limit" class="note">Rounds (one round = every player takes one turn)</label>
   <input id="round-limit" type="number" min="1" max="50" value="5">
   <div class="section-title" style="margin-top:12px">Allowed tile types</div>
-  <label class="setup-check"><input id="allow-image" type="checkbox" checked> Image question</label>
+  <label class="setup-check"><input id="allow-image-easy" type="checkbox" checked> Easy image question <span class="difficulty-dot easy-dot"></span></label>
+  <label class="setup-check"><input id="allow-image-medium" type="checkbox" checked> Medium image question <span class="difficulty-dot medium-dot"></span></label>
+  <label class="setup-check"><input id="allow-image-hard" type="checkbox" checked> Hard image question <span class="difficulty-dot hard-dot"></span></label>
   <label class="setup-check"><input id="allow-shop" type="checkbox" checked> Shop</label>
   <label class="setup-check"><input id="allow-coop" type="checkbox" checked> Co-op challenge</label>
-  <p class="note">Before starting, click a route node except START and GOAL to cycle through enabled tile types. Randomize fills all available nodes with a random enabled type.</p>
+  <p class="note">Before starting, click a route node except START and GOAL to cycle through enabled tile types. Easy, medium and hard image questions are separate tile types. Randomize fills all available nodes with a random enabled type.</p>
   <button class="secondary" id="randomize-board">Randomly distribute tiles</button>
   <button class="secondary" id="clear-board" style="margin-top:8px">Clear all tiles</button>
     <button class="secondary" id="add-round" style="margin-top:8px;display:none">Add one round</button>
