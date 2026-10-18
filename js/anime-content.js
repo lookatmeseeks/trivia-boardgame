@@ -90,7 +90,24 @@ async function fetchRandomMangaPanel(authorNames=[]){
   (window.ANIME_PARTY_SUPABASE&&window.ANIME_PARTY_SUPABASE.mangaFunction)||"mangadex-medium",
   {body:{action:"random-panel",authors:Array.isArray(authorNames)?authorNames:[]}}
  );
- if(error)throw new Error("Manga source request failed: "+(error.message||error));
+ if(error){
+  let detail=error.message||String(error);
+  // Supabase's FunctionsHttpError stores the response in error.context; expose the function's JSON error
+  // instead of hiding actionable details behind the generic "non-2xx" message.
+  try{
+   const context=error.context;
+   if(context&&typeof context.clone==="function"){
+    const response=context.clone();
+    let payload=null;
+    try{payload=await response.json();}catch(_){}
+    if(payload&&payload.error)detail=payload.error;
+    else if(payload&&payload.message)detail=payload.message;
+    else if(payload&&payload.msg)detail=payload.msg;
+    else if(response.status)detail+=" (HTTP "+response.status+")";
+   }
+  }catch(_){}
+  throw new Error("Manga source request failed: "+detail);
+ }
  if(!data||data.error)throw new Error(data&&data.error?data.error:"Manga source returned an empty response.");
  if(!data.entry||!data.entry.url||!data.entry.title||!Array.isArray(data.options)||data.options.length!==4){
   throw new Error("Manga source returned incomplete question data.");
