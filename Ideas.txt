@@ -1,0 +1,42 @@
+# Rules and Settings
+
+A game takes a certain amount of rounds which is specified by the host before the game starts. though during the game the host may add additional rounds
+
+The Board is empty of tiles in the beginning and the host can decide which tiles are allowed. he can have them randomly distributed or place them manually
+
+
+# Tiles
+
+Image Tiles (1 Player steps on a tile everyone can play and gather points. the player on the tile gets 2 for a win the others get 1 for a win)
+
+- easy
+  multiple Choice 
+	anime cover
+	anime character
+	anime fan art
+
+- medium
+  multiple choice
+	manga panel
+	soundtrack clip (audio only)
+	opening clip (audio and video)
+
+- hard
+  Type answer and answer is revealed when time runs out
+	anime cover
+	anime character
+	manga character
+	anime fanart
+	anime cosplay
+	
+	
+Shop Tile (Trade in Score points for Items)
+
+- Piggy bank (deposit score so it cant be used or stolen)
+- crowbar [1 time use] (hit player on the same tile over the head and steal 1 point)
+- 
+
+Co-op Tiles (the players are put into 2 teams and compete, the winning teams members get 1 point, the player that steped onto the field has a 50/50 chance to be allowed to steal 1 point from any of the loosing members and award it to any player on the winning team himself included)
+
+- truth or lie:
+	the teams each get a random set of obscure quotes from anime wikis they can choose to modify it or not. the 	sets are switched after a set time and the players have to figure out whether or not they where modified
