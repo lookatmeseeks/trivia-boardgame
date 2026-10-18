@@ -62,11 +62,12 @@ async function resolveAuthors(names) {
 }
 async function mangaCandidates(authorIds) {
   const candidates = new Map();
-  // Search a few pages so the result is not restricted to only the most popular manga.
+  // Sample a random catalogue region when no author filter is set; filtered searches start at the first match.
+  const initialOffset = authorIds.length ? 0 : Math.floor(Math.random() * 100) * 100;
   for (let page = 0; page < 4; page++) {
     const params = new URLSearchParams();
     params.set("limit", "100");
-    params.set("offset", String(page * 100));
+    params.set("offset", String(initialOffset + page * 100));
     params.set("hasAvailableChapters", "true");
     params.append("contentRating[]", "safe");
     params.append("contentRating[]", "suggestive");
