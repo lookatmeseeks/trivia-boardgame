@@ -23,18 +23,26 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
   };
   const wrong=shuffle(allAnimeTitles().filter(title=>title.toLowerCase()!==entry.title.toLowerCase())).slice(0,3);
   const options=shuffle([entry.title,...wrong]);
-  if(typeof mpRoomId!=="undefined"&&mpRoomId){challengeBusy=false;await mpStartSharedTrivia(entry,options);return;}
+  if(typeof mpRoomId!=="undefined"&&mpRoomId){
+   challengeBusy=false;
+   await mpStartSharedTrivia(entry,options);
+   return;
+  }
   answers.innerHTML="";
   options.forEach(title=>{const button=document.createElement("button");button.textContent=title;button.onclick=()=>resolveTriviaAnswer(title,button);answers.appendChild(button)});
   const typeNames={cover:"Cover",character:"Character",location:"Location / scenery",attack:"Attack / battle scene"};
   const difficultyNames={1:"Easy",2:"Medium",3:"Hard"};
   document.querySelector("#challenge-title").textContent="Which anime is this from?";
-  document.querySelector("#challenge-instructions").textContent=typeNames[entry.type]+" clue · "+difficultyNames[entry.difficulty];
+  document.querySelector("#challenge-instructions").textContent=(typeNames[entry.type]||"Anime clue")+" clue · "+(difficultyNames[entry.difficulty]||"Unknown difficulty");
   msg.textContent="Identify the anime from the image.";
   source.innerHTML="Clue: "+entry.label+". Source: "+(entry.sourceUrl||"Safebooru")+(entry.sourceUrl&&entry.type!=="cover"&&entry.type!=="character"?' · <a href="'+entry.sourceUrl+'" target="_blank" rel="noopener" style="color:#66e3ef">View source post</a>':"");
   challengeBusy=false;
  }catch(error){
-  media.innerHTML='<div class="note">No image loaded.</div>';msg.textContent="Image search failed: "+(error.message||"Network request failed")+". Try again.";next.textContent="Try again";next.style.display="block";challengeBusy=false;
+  challengeBusy=false;
+  media.innerHTML='<div class="note">The question could not be started.</div>';
+  answers.innerHTML="";
+  msg.textContent="Question setup failed: "+(error.message||"Network request failed")+". Check the multiplayer connection / Supabase setup, then try again.";
+  next.textContent="Try again";next.style.display="block";
  }
 }
 async function resolveTriviaAnswer(selected,button){
@@ -53,7 +61,14 @@ async function resolveTriviaAnswer(selected,button){
  else{msg.textContent="Incorrect. The intended answer was "+challengeAnswer+". No points awarded."}
  updateUI();next.textContent="Continue turn";next.style.display="block";document.querySelector("#challenge-source").textContent+=" · Answer: "+challengeAnswer;
 }
-document.querySelector("#challenge-test").addEventListener("click",()=>{if(typeof mpRoomId!=="undefined"&&mpRoomId)return;startTriviaChallenge(document.querySelector("#challenge-mode").value)});
+document.querySelector("#challenge-test").addEventListener("click",()=>{
+ if(typeof mpRoomId!=="undefined"&&mpRoomId&&!mpCanAct()){
+  document.querySelector("#challenge-overlay").style.display="flex";
+  document.querySelector("#challenge-status").textContent="Only the active player can start a synchronized question.";
+  return;
+ }
+ startTriviaChallenge(document.querySelector("#challenge-mode").value);
+});
 document.querySelector("#challenge-next").addEventListener("click",()=>{
  if(typeof mpRoomId!=="undefined"&&mpRoomId){
   if(!mpChallenge||mpChallenge.status!=="resolved"||!mpCanAct())return;
