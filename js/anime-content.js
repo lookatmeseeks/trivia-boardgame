@@ -84,31 +84,40 @@ async function fetchRandomEasyImage(){
 }
 
 
-async function fetchRandomMangaPanel(authorNames=[]){
- if(typeof mpClient==="undefined"||!mpClient)throw new Error("Connect to an online room before requesting a manga panel.");
+async function invokeMangaFunction(body){
+ if(typeof mpClient==="undefined"||!mpClient)throw new Error("Connect to an online room before requesting MangaDex data.");
  const {data,error}=await mpClient.functions.invoke(
   (window.ANIME_PARTY_SUPABASE&&window.ANIME_PARTY_SUPABASE.mangaFunction)||"mangadex-medium",
-  {body:{action:"random-panel",authors:Array.isArray(authorNames)?authorNames:[]}}
+  {body}
  );
  if(error){
   let detail=error.message||String(error);
-  // Supabase's FunctionsHttpError stores the response in error.context; expose the function's JSON error
-  // instead of hiding actionable details behind the generic "non-2xx" message.
   try{
    const context=error.context;
    if(context&&typeof context.clone==="function"){
-    const response=context.clone();
-    let payload=null;
-    try{payload=await response.json();}catch(_){}
+    const response=context.clone();let payload=null;
+    try{payload=await response.json()}catch(_){}
     if(payload&&payload.error)detail=payload.error;
     else if(payload&&payload.message)detail=payload.message;
     else if(payload&&payload.msg)detail=payload.msg;
     else if(response.status)detail+=" (HTTP "+response.status+")";
    }
   }catch(_){}
-  throw new Error("Manga source request failed: "+detail);
+  throw new Error(detail);
  }
- if(!data||data.error)throw new Error(data&&data.error?data.error:"Manga source returned an empty response.");
+ if(!data||data.error)throw new Error(data&&data.error?data.error:"MangaDex returned an empty response.");
+ return data;
+}
+async function searchMangaDexAuthors(query){
+ const data=await invokeMangaFunction({action:"search-authors",query:String(query||"").trim()});
+ return Array.isArray(data.authors)?data.authors.filter(a=>a&&a.id&&a.name):[];
+}
+async function fetchRandomMangaPanel(authorNames=[],authorIds=[]){
+ const data=await invokeMangaFunction({
+  action:"random-panel",
+  authors:Array.isArray(authorNames)?authorNames:[],
+  authorIds:Array.isArray(authorIds)?authorIds:[]
+ });
  if(!data.entry||!data.entry.url||!data.entry.title||!Array.isArray(data.options)||data.options.length!==4){
   throw new Error("Manga source returned incomplete question data.");
  }
