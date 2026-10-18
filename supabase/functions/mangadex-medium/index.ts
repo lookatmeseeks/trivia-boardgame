@@ -90,7 +90,7 @@ async function choosePanel(manga) {
   chapterParams.append("contentRating[]", "safe");
   chapterParams.append("contentRating[]", "suggestive");
   // Intentionally no translatedLanguage filter: chapter language does not affect the English answer title.
-  chapterParams.append("manga[]", manga.id);
+  chapterParams.append("includes[]", "scanlation_group");
   const chapterResult = await api("/manga/" + manga.id + "/feed?" + chapterParams.toString());
   const chapters = (chapterResult.data || []).filter(ch => ch.id && ch.attributes && ch.attributes.externalUrl == null);
   if (!chapters.length) return null;
@@ -99,6 +99,9 @@ async function choosePanel(manga) {
   const pageNames = atHome.chapter && atHome.chapter.data;
   if (!atHome.baseUrl || !atHome.chapter || !atHome.chapter.hash || !Array.isArray(pageNames) || !pageNames.length) return null;
   const filename = shuffle(pageNames)[0];
+  const groupIds = (chapter.relationships || []).filter(rel => rel.type === "scanlation_group").map(rel => rel.id);
+  const groups = (chapterResult.included || []).filter(item => item.type === "scanlation_group" && groupIds.includes(item.id));
+  const sourceCredit = groups.map(group => group.attributes && group.attributes.name).filter(Boolean).join(", ");
   return {
     entry: {
       title: manga.title,
@@ -106,7 +109,8 @@ async function choosePanel(manga) {
       type: "manga-panel",
       difficulty: 2,
       label: "Manga panel",
-      sourceUrl: "https://mangadex.org/chapter/" + chapter.id
+      sourceUrl: "https://mangadex.org/chapter/" + chapter.id,
+      sourceCredit
     }
   };
 }
