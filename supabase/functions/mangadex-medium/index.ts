@@ -67,25 +67,33 @@ async function resolveAuthors(names) {
 }
 async function mangaCandidates(authorIds) {
   const candidates = new Map();
-  // Sample a random catalogue region when no author filter is set; filtered searches start at the first match.
-  const initialOffset = authorIds.length ? 0 : Math.floor(Math.random() * 100) * 100;
-  for (let page = 0; page < 4; page++) {
+  // MangaDex supports authorOrArtist as a single UUID, not authorsOrArtists[].
+  // Query each selected creator separately so authors and artists both work, then merge duplicates.
+  const searches = authorIds.length
+    ? authorIds.map(id => ({ creatorId: id, offset: 0 }))
+    : Array.from({ length: 4 }, (_, page) => ({
+        creatorId: "",
+        offset: Math.floor(Math.random() * 100) * 100 + page * 100
+      }));
+
+  for (const search of searches) {
     const params = new URLSearchParams();
     params.set("limit", "100");
-    params.set("offset", String(initialOffset + page * 100));
+    params.set("offset", String(search.offset));
     params.set("hasAvailableChapters", "true");
     params.append("contentRating[]", "safe");
     params.append("contentRating[]", "suggestive");
     params.append("includes[]", "author");
     params.append("includes[]", "artist");
     params.set("order[followedCount]", "desc");
-    authorIds.forEach(id => params.append("authorsOrArtists[]", id));
+    if (search.creatorId) params.set("authorOrArtist", search.creatorId);
+
     const result = await api("/manga?" + params.toString());
     for (const manga of result.data || []) {
       const title = englishTitle(manga);
       if (title) candidates.set(manga.id, { id: manga.id, title });
     }
-    if ((result.data || []).length < 100) break;
+    if (!search.creatorId && (result.data || []).length < 100) break;
   }
   return [...candidates.values()];
 }
