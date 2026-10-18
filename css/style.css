@@ -26,3 +26,11 @@ button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:11px 14p
 
 @media(max-width:1100px){main{grid-template-columns:190px minmax(0,1fr)}.side{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.side section:first-child,.side section:last-child{grid-column:1/-1}}
 @media(max-width:650px){main{grid-template-columns:1fr}.scoreboard-panel{position:static;max-height:none}.side{display:flex}header{padding-top:18px}#board{min-height:280px}}
+
+/* Multiplayer room controls */
+.multiplayer-panel{padding:14px;background:#202538;border:1px solid #343c55;border-radius:12px}
+.multiplayer-panel input{width:100%;min-width:0;padding:10px;border-radius:9px;background:#111521;color:#f5f5ff;border:1px solid #424a65;font:inherit}
+.mp-join-row{display:grid;grid-template-columns:minmax(0,1fr) 78px;gap:8px;margin-top:8px}
+.mp-join-row .secondary{width:100%;padding:9px}
+#mp-room-actions{grid-template-columns:1fr}
+@media(min-width:1101px){.multiplayer-panel{grid-column:1/-1}}
