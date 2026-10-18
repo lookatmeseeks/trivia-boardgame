@@ -103,11 +103,10 @@ function finishTurn(){
  remaining=0;moving=false;choicesEl.innerHTML="";
  const p=players[current],landed=node(p.pos);
  const landedType=tileTypes[p.pos];
- if(landedType==="image-easy"&&!challengeResolved){startTriviaChallenge("easy");return}
+ if((landedType==="image-easy"||landedType==="image-medium")&&!challengeResolved){startTriviaChallenge(landedType==="image-medium"?"medium":"easy");return}
  challengeResolved=false;
  let result=p.name+" finished their move on "+landed.label+".";
- if(landedType==="image-medium")result+=" Medium image questions are not implemented yet; this tile is skipped for now.";
- else if(landedType==="image-hard")result+=" Hard image questions are not implemented yet; this tile is skipped for now.";
+ if(landedType==="image-hard")result+=" Hard image questions are not implemented yet; this tile is skipped for now.";
  if(landedType==="shop")result+=" Shop tile: shop and item effects will be added in the next implementation phase.";
  else if(landedType==="coop")result+=" Co-op tile: team challenge rules will be added in the next implementation phase.";
  if(p.pos===9){gameOver=true;setStatus(p.name+" reached the goal! Final scores: "+players.map(x=>x.name+" "+x.score).join(", ")+". Restart to play again.");document.querySelector("#roll").disabled=true;updateUI();return}
@@ -124,6 +123,6 @@ resetGame();
 document.querySelector("#randomize-board").addEventListener("click",randomizeBoard);
 document.querySelector("#clear-board").addEventListener("click",clearBoardTiles);
 function getMediumAuthors(){return mediumAuthors.slice()}
-document.querySelector("#medium-authors").addEventListener("input",event=>{mediumAuthors=event.target.value.split(/\\r?\\n/).map(name=>name.trim()).filter(Boolean).slice(0,30)});
+document.querySelector("#medium-authors").addEventListener("input",event=>{mediumAuthors=event.target.value.split(/\r?\n/).map(name=>name.trim()).filter(Boolean).slice(0,30)});
 document.querySelector("#add-round").addEventListener("click",()=>{if(mpRoomId&&!mpIsHost)return;roundLimit=Math.min(50,roundLimit+1);gameOver=false;updateSetupUI();updateUI();setStatus("The host added a round. "+roundLimit+" rounds are now available.");if(typeof mpStateChanged==="function")mpStateChanged()});
 ["allow-image-easy","allow-image-medium","allow-image-hard","allow-shop","allow-coop"].forEach(id=>document.querySelector("#"+id).addEventListener("change",()=>{if(!canEditBoard())return;const allowed=allowedTileTypes();Object.keys(tileTypes).forEach(key=>{if(!allowed.includes(tileTypes[key]))delete tileTypes[key]});renderBoard()}));
