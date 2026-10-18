@@ -16,7 +16,7 @@ const adjacency={};nodes.forEach(n=>adjacency[n.id]=[]);edges.forEach(([a,b])=>{
 const colors=["#ff5da8","#66e3ef","#ffd166","#a78bfa"];
 let players=[],current=0,remaining=0,moving=false,turnStarted=false,gameOver=false,challengeResolved=false,challengeBusy=false,challengeAnswer="";
 const svg=document.querySelector("#board"),statusEl=document.querySelector("#status"),choicesEl=document.querySelector("#choices");
-let tileTypes={},roundLimit=5,roundsCompleted=0,setupMode=true;
+let tileTypes={},roundLimit=5,roundsCompleted=0,setupMode=true,mediumAuthors=[];
 const tileLabels={"image-easy":"EASY","image-medium":"MEDIUM","image-hard":"HARD",shop:"SHOP",coop:"CO-OP"};
 function allowedTileTypes(){return [document.querySelector("#allow-image-easy")?.checked&&"image-easy",document.querySelector("#allow-image-medium")?.checked&&"image-medium",document.querySelector("#allow-image-hard")?.checked&&"image-hard",document.querySelector("#allow-shop")?.checked&&"shop",document.querySelector("#allow-coop")?.checked&&"coop"].filter(Boolean)}
 function canEditBoard(){return setupMode&&(!mpRoomId||mpIsHost)&&(!mpRoomId||mpRoomStatus==="lobby")}
@@ -27,6 +27,7 @@ function updateSetupUI(){
  document.querySelector("#round-limit").disabled=!canEditBoard();
  ["allow-image-easy","allow-image-medium","allow-image-hard","allow-shop","allow-coop","randomize-board","clear-board"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
  document.querySelector("#round-limit").value=roundLimit;
+ const authorInput=document.querySelector("#medium-authors");if(authorInput){authorInput.disabled=!canEditBoard();if(document.activeElement!==authorInput)authorInput.value=mediumAuthors.join("\n");}
  document.querySelector("#setup-status").textContent=setupMode?"Edit the board, choose allowed tile types, then start the game.":"Round "+Math.min(roundsCompleted+1,roundLimit)+" of "+roundLimit+" · "+roundsCompleted+" completed.";
 }
 function handleBoardNodeClick(id){if(!canEditBoard()||id===0||id===9)return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Enable at least one tile type first.";return}const currentType=tileTypes[id],index=allowed.indexOf(currentType);if(index<0)tileTypes[id]=allowed[0];else if(index===allowed.length-1)delete tileTypes[id];else tileTypes[id]=allowed[index+1];renderBoard()}
@@ -122,5 +123,7 @@ resetGame();
 
 document.querySelector("#randomize-board").addEventListener("click",randomizeBoard);
 document.querySelector("#clear-board").addEventListener("click",clearBoardTiles);
+function getMediumAuthors(){return mediumAuthors.slice()}
+document.querySelector("#medium-authors").addEventListener("input",event=>{mediumAuthors=event.target.value.split(/\\r?\\n/).map(name=>name.trim()).filter(Boolean).slice(0,30)});
 document.querySelector("#add-round").addEventListener("click",()=>{if(mpRoomId&&!mpIsHost)return;roundLimit=Math.min(50,roundLimit+1);gameOver=false;updateSetupUI();updateUI();setStatus("The host added a round. "+roundLimit+" rounds are now available.");if(typeof mpStateChanged==="function")mpStateChanged()});
 ["allow-image-easy","allow-image-medium","allow-image-hard","allow-shop","allow-coop"].forEach(id=>document.querySelector("#"+id).addEventListener("change",()=>{if(!canEditBoard())return;const allowed=allowedTileTypes();Object.keys(tileTypes).forEach(key=>{if(!allowed.includes(tileTypes[key]))delete tileTypes[key]});renderBoard()}));
