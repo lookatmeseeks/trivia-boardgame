@@ -13,13 +13,15 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
    throw new Error("This event does not have a question provider implemented yet.");
   }
   challengeAnswer=entry.title;
-  const img=document.createElement("img");img.alt=entry.label;img.src=entry.url;
-  img.onload=()=>{media.replaceChildren(img)};
-  img.onerror=()=>{
-   media.innerHTML='<div class="note">This image failed to load. Try another clue.</div>';
-   answers.innerHTML="";msg.textContent="The selected image URL could not be loaded by the browser.";
-   next.textContent="Try again";next.style.display="block";challengeBusy=false;
-  };
+  if(entry.videoId){media.innerHTML='<div class="note">Loading YouTube clip…</div>'}else{
+   const img=document.createElement("img");img.alt=entry.label;img.src=entry.url;
+   img.onload=()=>{media.replaceChildren(img)};
+   img.onerror=()=>{
+    media.innerHTML='<div class="note">This image failed to load. Try another clue.</div>';
+    answers.innerHTML="";msg.textContent="The selected image URL could not be loaded by the browser.";
+    next.textContent="Try again";next.style.display="block";challengeBusy=false;
+   };
+  }
   const wrong=shuffle(allAnimeTitles().filter(title=>title.toLowerCase()!==entry.title.toLowerCase())).slice(0,3);
   const options=Array.isArray(entry.options)&&entry.options.length===4?entry.options:shuffle([entry.title,...wrong]);
   if(typeof mpRoomId==="undefined"||!mpRoomId)throw new Error("Create or join an online room before starting a question.");
@@ -61,7 +63,7 @@ function mpRenderSharedChallenge(challenge){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
  if(!challenge){overlay.style.display="none";return}
  overlay.style.display="flex";
- document.querySelector("#challenge-title").textContent=challenge.type==="manga-panel"?"Which manga is this panel from?":"Which anime is this from?";
+ document.querySelector("#challenge-title").textContent=challenge.type==="manga-panel"?"Which manga is this panel from?":challenge.type==="soundtrack-clip"?"Which anime is this soundtrack from?":challenge.type==="opening-clip"?"Which anime is this opening from?":"Which anime is this from?";
  const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art","manga-panel":"Manga panel","soundtrack-clip":"Soundtrack clip (audio only)","opening-clip":"Opening clip (audio + video)"};
  document.querySelector("#challenge-instructions").textContent=(typeNames[challenge.type]||"Anime clue")+" event";
  if(challenge.mediaType==="youtube"&&challenge.videoId){
