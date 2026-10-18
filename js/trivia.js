@@ -6,7 +6,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
   if(mode==="easy"||mode==="random"){
    entry=await fetchRandomEasyImage();
   }else if(mode==="medium"){
-   entry=await fetchRandomMangaPanel(typeof getMediumAuthors==="function"?getMediumAuthors():[]);
+   entry=await fetchRandomMangaPanel(typeof getMediumAuthors==="function"?getMediumAuthors():[],typeof getMediumAuthorIds==="function"?getMediumAuthorIds():[]);
   }else{
    throw new Error("Only Easy image questions are implemented so far. Medium and Hard are coming in later stages.");
   }
