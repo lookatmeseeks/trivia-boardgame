@@ -38,9 +38,13 @@
   <label class="setup-check"><input id="allow-image-hard" type="checkbox" checked> Hard image question <span class="difficulty-dot hard-dot"></span></label>
   <label class="setup-check"><input id="allow-shop" type="checkbox" checked> Shop</label>
   <label class="setup-check"><input id="allow-coop" type="checkbox" checked> Co-op challenge</label>
-  <label class="note" for="medium-authors" style="display:block;margin-top:12px">Allowed manga authors/artists for Medium (one MangaDex name per line; blank allows all)</label>
-  <textarea id="medium-authors" rows="3" placeholder="e.g. ONE&#10;Tatsuki Fujimoto" style="width:100%;resize:vertical;padding:10px;border-radius:9px;background:#111521;color:#f5f5ff;border:1px solid #424a65;font:inherit"></textarea>
-  <p class="note">Names must match MangaDex author/artist names. This filter applies to manga panels only. Before starting, click a route node except START and GOAL to cycle through enabled tile types.</p>
+  <label class="note" for="medium-author-search" style="display:block;margin-top:12px">Allowed manga authors/artists for Medium</label>
+  <div style="display:flex;gap:6px;margin-top:6px"><input id="medium-author-search" type="search" placeholder="Search MangaDex creators (e.g. Urasawa)" style="min-width:0;flex:1"><button class="secondary" id="medium-author-search-button" type="button">Search</button></div>
+  <div id="medium-author-status" class="note" aria-live="polite" style="margin-top:6px">Search for a creator, then select the exact MangaDex entry. Leave the selection empty to allow all creators.</div>
+  <div id="medium-author-results" style="display:grid;gap:5px;margin-top:6px"></div>
+  <div class="note" style="margin-top:10px">Selected creators</div>
+  <div id="medium-author-selected" style="display:grid;gap:5px;margin-top:5px"><span class="note">All creators allowed.</span></div>
+  <p class="note">The filter uses MangaDex creator IDs, so capitalization and exact spelling no longer matter once you select a result. This applies to manga panels only. Before starting, click a route node except START and GOAL to cycle through enabled tile types.</p>
   <button class="secondary" id="randomize-board">Randomly distribute tiles</button>
   <button class="secondary" id="clear-board" style="margin-top:8px">Clear all tiles</button>
     <button class="secondary" id="add-round" style="margin-top:8px;display:none">Add one round</button>
