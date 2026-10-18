@@ -18,13 +18,14 @@ let players=[],current=0,remaining=0,moving=false,turnStarted=false,gameOver=fal
 const svg=document.querySelector("#board"),statusEl=document.querySelector("#status"),choicesEl=document.querySelector("#choices");
 let tileTypes={},roundLimit=5,roundsCompleted=0,setupMode=true,mediumAuthors=[],mediumAuthorSelections=[];
 let tilePresets=[],editingPresetId=null,presetSequence=1;
+let youtubeMediaPool=[];
 const tileEvents=[
  {id:"anime-cover",name:"Anime cover",kind:"question",implemented:true},
  {id:"anime-character",name:"Anime character",kind:"question",implemented:true},
  {id:"anime-fanart",name:"Anime fan art",kind:"question",implemented:true},
  {id:"manga-panel",name:"Manga panel",kind:"question",implemented:true},
- {id:"soundtrack-clip",name:"Soundtrack clip (audio only)",kind:"question",implemented:false},
- {id:"opening-clip",name:"Opening clip (audio + video)",kind:"question",implemented:false},
+ {id:"soundtrack-clip",name:"Soundtrack clip (audio only)",kind:"question",implemented:true},
+ {id:"opening-clip",name:"Opening clip (audio + video)",kind:"question",implemented:true},
  {id:"manga-character",name:"Manga character",kind:"question",implemented:false},
  {id:"anime-cosplay",name:"Anime cosplay",kind:"question",implemented:false},
  {id:"shop",name:"Shop visit",kind:"special",implemented:false},
@@ -42,7 +43,7 @@ function updateSetupUI(){
  document.querySelector("#round-limit").disabled=!canEditBoard();
  ["randomize-board","clear-board","preset-name","preset-color","preset-save","preset-cancel"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
  document.querySelector("#round-limit").value=roundLimit;
- const authorInput=document.querySelector("#medium-author-search"),searchButton=document.querySelector("#medium-author-search-button");if(authorInput)authorInput.disabled=!canEditBoard();if(searchButton)searchButton.disabled=!canEditBoard();renderMediumAuthorSelections();renderPresetEditor();
+ const authorInput=document.querySelector("#medium-author-search"),searchButton=document.querySelector("#medium-author-search-button");if(authorInput)authorInput.disabled=!canEditBoard();if(searchButton)searchButton.disabled=!canEditBoard();renderMediumAuthorSelections();renderPresetEditor();renderYoutubeMediaPool();
  document.querySelector("#setup-status").textContent=setupMode?"Create presets, choose their events, then assign presets to board tiles.":"Round "+Math.min(roundsCompleted+1,roundLimit)+" of "+roundLimit+" · "+roundsCompleted+" completed.";
 }
 function handleBoardNodeClick(id){if(!canEditBoard()||id===0||id===9)return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Create a preset with at least one event first.";return}const currentId=tileTypes[id],index=allowed.indexOf(currentId);if(index<0)tileTypes[id]=allowed[0];else if(index===allowed.length-1)delete tileTypes[id];else tileTypes[id]=allowed[index+1];renderBoard();if(typeof mpStateChanged==="function")mpStateChanged()}
@@ -95,6 +96,69 @@ function savePreset(){
 }
 document.querySelector("#preset-save").addEventListener("click",savePreset);
 document.querySelector("#preset-cancel").addEventListener("click",clearPresetForm);
+function youtubeVideoId(value){
+ try{
+  const url=new URL(String(value||"").trim());
+  if(url.hostname==="youtu.be")return url.pathname.split("/").filter(Boolean)[0]||"";
+  if(!/(^|\\.)youtube\\.com$/i.test(url.hostname))return "";
+  if(url.pathname==="/watch")return url.searchParams.get("v")||"";
+  const parts=url.pathname.split("/").filter(Boolean);
+  if(["embed","shorts","live"].includes(parts[0]))return parts[1]||"";
+ }catch(_){}
+ return "";
+}
+function renderYoutubeMediaPool(){
+ const list=document.querySelector("#youtube-approved-list");if(!list)return;
+ list.innerHTML="";
+ if(!youtubeMediaPool.length){list.innerHTML='<span class="note">No approved videos yet.</span>';return}
+ youtubeMediaPool.forEach(item=>{
+  const row=document.createElement("div");row.className="youtube-approved-item";
+  const details=document.createElement("div");details.className="youtube-approved-detail";
+  const title=document.createElement("strong");title.textContent=item.answer;
+  const meta=document.createElement("div");meta.className="note";meta.textContent=(item.eventType==="opening-clip"?"Opening":"Soundtrack")+" · "+(item.videoTitle||item.videoId)+" · starts at "+item.startSeconds+"s";
+  details.append(title,meta);
+  const remove=document.createElement("button");remove.type="button";remove.className="secondary";remove.style.width="auto";remove.textContent="Remove";remove.disabled=!canEditBoard();remove.addEventListener("click",()=>{if(!canEditBoard())return;youtubeMediaPool=youtubeMediaPool.filter(entry=>entry.id!==item.id);renderYoutubeMediaPool();if(typeof mpStateChanged==="function")mpStateChanged()});
+  row.append(details,remove);list.append(row);
+ });
+}
+function addApprovedYoutubeVideo(){
+ if(!canEditBoard())return;
+ const eventType=document.querySelector("#youtube-media-event").value;
+ const url=document.querySelector("#youtube-video-url").value.trim();
+ const videoId=youtubeVideoId(url);
+ const answer=document.querySelector("#youtube-anime-answer").value.trim();
+ const videoTitle=document.querySelector("#youtube-video-title").value.trim();
+ const startSeconds=Math.max(0,Math.min(86400,Number.parseInt(document.querySelector("#youtube-start-seconds").value,10)||0));
+ const status=document.querySelector("#youtube-media-status");
+ if(!videoId){status.textContent="Enter a valid YouTube watch, youtu.be, embed, or Shorts URL.";return}
+ if(!answer){status.textContent="Enter the correct anime title before approving this video.";return}
+ if(youtubeMediaPool.some(item=>item.eventType===eventType&&item.videoId===videoId)){status.textContent="That video is already approved for this event.";return}
+ youtubeMediaPool.push({id:"youtube-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,7),eventType,videoId,videoUrl:"https://www.youtube.com/watch?v="+videoId,videoTitle,answer,startSeconds,approved:true});
+ document.querySelector("#youtube-video-url").value="";document.querySelector("#youtube-video-title").value="";document.querySelector("#youtube-anime-answer").value="";document.querySelector("#youtube-start-seconds").value="0";
+ status.textContent="Video approved and added to the shared media pool.";
+ renderYoutubeMediaPool();if(typeof mpStateChanged==="function")mpStateChanged();
+}
+async function searchYoutubeMediaFromHost(){
+ if(!canEditBoard())return;
+ const query=document.querySelector("#youtube-search-query").value.trim(),eventType=document.querySelector("#youtube-media-event").value,status=document.querySelector("#youtube-media-status"),results=document.querySelector("#youtube-search-results");
+ if(!query){status.textContent="Enter a search query first.";return}
+ status.textContent="Searching YouTube…";results.innerHTML="";
+ try{
+  const candidates=await searchYoutubeMedia(query,eventType);
+  if(!candidates.length){status.textContent="No embeddable YouTube videos found.";return}
+  status.textContent="Choose a candidate to prefill the approval form. Verify the answer before adding it.";
+  candidates.forEach(candidate=>{
+   const row=document.createElement("div");row.className="youtube-search-result";
+   const link=document.createElement("a");link.href=candidate.url;link.target="_blank";link.rel="noopener";link.textContent=candidate.title;link.className="youtube-candidate-title";
+   const use=document.createElement("button");use.type="button";use.className="secondary";use.style.width="auto";use.textContent="Use";
+   use.addEventListener("click",()=>{document.querySelector("#youtube-video-url").value=candidate.url;document.querySelector("#youtube-video-title").value=candidate.title;status.textContent="Candidate selected. Enter the correct anime title and approve it."});
+   row.append(link,use);results.append(row);
+  });
+ }catch(error){status.textContent="YouTube search failed: "+(error.message||error)+". You can still add a link manually."}
+}
+document.querySelector("#youtube-search-button").addEventListener("click",searchYoutubeMediaFromHost);
+document.querySelector("#youtube-search-query").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();searchYoutubeMediaFromHost()}});
+document.querySelector("#youtube-add-approved").addEventListener("click",addApprovedYoutubeVideo);
 function node(id){return nodes.find(n=>n.id===id)}
 function renderBoard(){
  let s="";
