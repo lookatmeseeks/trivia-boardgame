@@ -77,8 +77,9 @@ async function fetchRandomSafebooruEasyImage(kind){
  }
  throw new Error("Safebooru did not return a suitable general-rated "+(kind==="character"?"character image":"fan-art image")+". Try another clue.");
 }
-async function fetchRandomEasyImage(){
- const kind=["cover","character","fanart"][Math.floor(Math.random()*3)];
+async function fetchRandomEasyImage(eventId="random"){
+ const eventKinds={"anime-cover":"cover","anime-character":"character","anime-fanart":"fanart"};
+ const kind=eventKinds[eventId]||(["cover","character","fanart"][Math.floor(Math.random()*3)]);
  if(kind==="cover")return fetchRandomKitsuAnime();
  return fetchRandomSafebooruEasyImage(kind);
 }
