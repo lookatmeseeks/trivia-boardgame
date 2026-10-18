@@ -91,23 +91,27 @@ async function mangaCandidates(authorIds) {
 }
 async function imageIsAvailable(url) {
   try {
+    // Use GET rather than HEAD: some MangaDex@Home nodes handle HEAD differently from actual image loads.
     const response = await fetch(url, {
-      method: "HEAD",
-      headers: { "User-Agent": "AnimeParty/1.0 (manga trivia game)" }
+      headers: {
+        "User-Agent": "AnimeParty/1.0 (manga trivia game)",
+        "Range": "bytes=0-0"
+      }
     });
-    if (response.ok) return true;
-    console.warn("[mangadex-medium] Manga page URL is unavailable", {
-      status: response.status,
-      url
-    });
+    if (response.ok) {
+      await response.body?.cancel();
+      return true;
+    }
+    const status = response.status;
+    await response.body?.cancel();
+    console.warn("[mangadex-medium] Manga page URL is unavailable", { status, url });
     return false;
   } catch (error) {
     console.warn("[mangadex-medium] Could not verify manga page URL", {
       url,
       error: error instanceof Error ? error.message : String(error)
     });
-    // A network error during the optional check should not discard a potentially valid page.
-    return true;
+    return false;
   }
 }
 async function choosePanel(manga) {
@@ -122,28 +126,43 @@ async function choosePanel(manga) {
   const chapters = (chapterResult.data || []).filter(ch => ch.id && ch.attributes && ch.attributes.externalUrl == null);
   if (!chapters.length) return null;
   for (const chapter of shuffle(chapters).slice(0, 8)) {
-    const atHome = await api("/at-home/server/" + chapter.id);
-    if (!atHome.baseUrl || !atHome.chapter || !atHome.chapter.hash) continue;
-    const fullPages = Array.isArray(atHome.chapter.data) ? shuffle(atHome.chapter.data) : [];
-    const saverPages = Array.isArray(atHome.chapter.dataSaver) ? shuffle(atHome.chapter.dataSaver) : [];
-    const candidates = [];
-    for (const filename of fullPages.slice(0, 4)) {
-      candidates.push({
-        url: atHome.baseUrl + "/data/" + atHome.chapter.hash + "/" + filename,
-        filename
-      });
-    }
-    for (const filename of saverPages.slice(0, 4)) {
-      candidates.push({
-        url: atHome.baseUrl + "/data-saver/" + atHome.chapter.hash + "/" + filename,
-        filename
-      });
-    }
     let workingPage = null;
-    for (const candidate of candidates) {
-      if (await imageIsAvailable(candidate.url)) {
-        workingPage = candidate;
-        break;
+    let checked = 0;
+    // MangaDex documents that a failed @Home server can be replaced by requesting a fresh assignment.
+    for (let serverAttempt = 0; serverAttempt < 2 && !workingPage; serverAttempt++) {
+      const atHome = await api("/at-home/server/" + chapter.id + (serverAttempt ? "?forcePort443=true" : ""));
+      if (!atHome.baseUrl || !atHome.chapter || !atHome.chapter.hash) continue;
+      const fullPages = Array.isArray(atHome.chapter.data) ? shuffle(atHome.chapter.data) : [];
+      const saverPages = Array.isArray(atHome.chapter.dataSaver) ? shuffle(atHome.chapter.dataSaver) : [];
+      const candidates = [];
+      for (const filename of fullPages.slice(0, 4)) {
+        candidates.push({
+          url: atHome.baseUrl + "/data/" + atHome.chapter.hash + "/" + filename,
+          filename
+        });
+      }
+      for (const filename of saverPages.slice(0, 4)) {
+        candidates.push({
+          url: atHome.baseUrl + "/data-saver/" + atHome.chapter.hash + "/" + filename,
+          filename
+        });
+      }
+      for (const candidate of candidates) {
+        checked++;
+        if (await imageIsAvailable(candidate.url)) {
+          workingPage = candidate;
+          break;
+        }
+      }
+      if (!workingPage) {
+        console.warn("[mangadex-medium] MangaDex@Home assignment had no available sampled pages", {
+          mangaId: manga.id,
+          title: manga.title,
+          chapterId: chapter.id,
+          serverAttempt: serverAttempt + 1,
+          checked: candidates.length,
+          baseUrl: atHome.baseUrl
+        });
       }
     }
     if (!workingPage) {
@@ -151,7 +170,7 @@ async function choosePanel(manga) {
         mangaId: manga.id,
         title: manga.title,
         chapterId: chapter.id,
-        checked: candidates.length
+        checked
       });
       continue;
     }
