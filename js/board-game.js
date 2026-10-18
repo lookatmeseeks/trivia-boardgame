@@ -1,12 +1,12 @@
 const nodes=[
  {id:0,x:90,y:300,label:"START",type:"start"},
- {id:1,x:170,y:300,label:"1"},{id:2,x:250,y:300,label:"2"},{id:3,x:330,y:300,label:"★",type:"score"},
+ {id:1,x:170,y:300,label:"1"},{id:2,x:250,y:300,label:"2"},{id:3,x:330,y:300,label:"3"},
  {id:4,x:410,y:300,label:"4"},{id:5,x:490,y:300,label:"5",type:"junction"},
- {id:6,x:570,y:300,label:"6"},{id:7,x:650,y:300,label:"7"},{id:8,x:730,y:300,label:"!",type:"event"},{id:9,x:810,y:300,label:"GOAL"},
- {id:10,x:250,y:190,label:"A"},{id:11,x:330,y:130,label:"B"},{id:12,x:420,y:145,label:"C"},{id:13,x:490,y:220,label:"?",type:"challenge"},
+ {id:6,x:570,y:300,label:"6"},{id:7,x:650,y:300,label:"7"},{id:8,x:730,y:300,label:"8"},{id:9,x:810,y:300,label:"GOAL"},
+ {id:10,x:250,y:190,label:"A"},{id:11,x:330,y:130,label:"B"},{id:12,x:420,y:145,label:"C"},{id:13,x:490,y:220,label:"13"},
  {id:14,x:650,y:190,label:"E"},{id:15,x:730,y:125,label:"F"},{id:16,x:810,y:190,label:"G"},
- {id:17,x:250,y:410,label:"H"},{id:18,x:330,y:475,label:"I"},{id:19,x:420,y:460,label:"J"},{id:20,x:490,y:380,label:"★",type:"score"},
- {id:21,x:650,y:410,label:"L"},{id:22,x:730,y:480,label:"!",type:"event"},{id:23,x:810,y:410,label:"N"}
+ {id:17,x:250,y:410,label:"H"},{id:18,x:330,y:475,label:"I"},{id:19,x:420,y:460,label:"J"},{id:20,x:490,y:380,label:"20"},
+ {id:21,x:650,y:410,label:"L"},{id:22,x:730,y:480,label:"22"},{id:23,x:810,y:410,label:"N"}
 ];
 const edges=[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],
  [2,10],[10,11],[11,12],[12,13],[13,5],[13,14],[14,15],[15,16],[16,9],
@@ -16,12 +16,38 @@ const adjacency={};nodes.forEach(n=>adjacency[n.id]=[]);edges.forEach(([a,b])=>{
 const colors=["#ff5da8","#66e3ef","#ffd166","#a78bfa"];
 let players=[],current=0,remaining=0,moving=false,turnStarted=false,gameOver=false,challengeResolved=false,challengeBusy=false,challengeAnswer="";
 const svg=document.querySelector("#board"),statusEl=document.querySelector("#status"),choicesEl=document.querySelector("#choices");
+let tileTypes={},roundLimit=5,roundsCompleted=0,setupMode=true;
+const tileLabels={image:"IMG",shop:"SHOP",coop:"CO-OP"};
+function allowedTileTypes(){return [document.querySelector("#allow-image")?.checked&&"image",document.querySelector("#allow-shop")?.checked&&"shop",document.querySelector("#allow-coop")?.checked&&"coop"].filter(Boolean)}
+function canEditBoard(){return setupMode&&(!mpRoomId||mpIsHost)&&(!mpRoomId||mpRoomStatus==="lobby")}
+function updateSetupUI(){
+ const panel=document.querySelector("#host-setup");if(!panel)return;
+ const editable=!mpRoomId||mpIsHost;panel.style.display=editable?"block":"none";
+ document.querySelector("#setup-start-local").style.display=mpRoomId?"none":(setupMode?"block":"none");
+ document.querySelector("#add-round").style.display=mpRoomId?(mpIsHost&&mpRoomStatus==="playing"?"block":"none"):(setupMode?"none":"block");
+ document.querySelector("#round-limit").disabled=!canEditBoard();
+ ["allow-image","allow-shop","allow-coop","randomize-board","clear-board"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
+ document.querySelector("#round-limit").value=roundLimit;
+ document.querySelector("#setup-status").textContent=setupMode?"Edit the board, choose allowed tile types, then start the game.":"Round "+Math.min(roundsCompleted+1,roundLimit)+" of "+roundLimit+" · "+roundsCompleted+" completed.";
+}
+function handleBoardNodeClick(id){if(!canEditBoard()||id===0||id===9)return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Enable at least one tile type first.";return}const currentType=tileTypes[id],index=allowed.indexOf(currentType);if(index<0)tileTypes[id]=allowed[0];else if(index===allowed.length-1)delete tileTypes[id];else tileTypes[id]=allowed[index+1];renderBoard()}
+function randomizeBoard(){if(!canEditBoard())return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Enable at least one tile type first.";return}tileTypes={};nodes.filter(n=>n.id!==0&&n.id!==9).forEach(n=>{tileTypes[n.id]=allowed[Math.floor(Math.random()*allowed.length)]});renderBoard();document.querySelector("#setup-status").textContent="Tiles randomly distributed. Click nodes to adjust them."}
+function clearBoardTiles(){if(!canEditBoard())return;tileTypes={};renderBoard();document.querySelector("#setup-status").textContent="All tiles cleared."}
+function startLocalGame(){if(mpRoomId)return;roundLimit=Math.max(1,Math.min(50,Number.parseInt(document.querySelector("#round-limit").value,10)||5));roundsCompleted=0;setupMode=false;players=[{name:"Player 1",pos:0,previous:null,score:0},{name:"Player 2",pos:0,previous:null,score:0},{name:"Player 3",pos:0,previous:null,score:0},{name:"Player 4",pos:0,previous:null,score:0}];current=0;remaining=0;moving=false;gameOver=false;challengeResolved=false;challengeBusy=false;document.querySelector("#die").textContent="—";renderBoard();startTurn();updateSetupUI()}
 function node(id){return nodes.find(n=>n.id===id)}
 function renderBoard(){
  let s="";
- edges.forEach(([a,b])=>{let A=node(a),B=node(b);s+=`<line class="edge" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"/><line class="edge-highlight" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"/>`});
- nodes.forEach(n=>{const cls=n.type==="score"?"tile score-space":n.type==="event"?"tile event-space":n.type==="challenge"?"tile challenge-space":n.type==="special"?"tile special":n.type==="start"?"tile start":"tile";s+=`<g><circle class="${cls}" cx="${n.x}" cy="${n.y}" r="${adjacency[n.id].length>2?23:19}"/><text class="tile-label" x="${n.x}" y="${n.y+4}">${n.label}</text></g>`});
- svg.innerHTML=s;renderTokens();
+ edges.forEach(([a,b])=>{let A=node(a),B=node(b);s+='<line class="edge" x1="'+A.x+'" y1="'+A.y+'" x2="'+B.x+'" y2="'+B.y+'"/><line class="edge-highlight" x1="'+A.x+'" y1="'+A.y+'" x2="'+B.x+'" y2="'+B.y+'"/>'});
+ nodes.forEach(n=>{
+  const type=tileTypes[n.id];
+  const cls=type==="image"?"tile image-space":type==="shop"?"tile shop-space":type==="coop"?"tile coop-space":n.type==="start"?"tile start":"tile";
+  const label=type?(tileLabels[type]||type):n.label;
+  const editor=canEditBoard()&&n.id!==0&&n.id!==9;
+  s+='<g><circle class="'+cls+(editor?" editor-tile":"")+'" data-node-id="'+n.id+'" cx="'+n.x+'" cy="'+n.y+'" r="'+(adjacency[n.id].length>2?23:19)+'"/><text class="tile-label" data-node-id="'+n.id+'" x="'+n.x+'" y="'+(n.y+4)+'">'+label+'</text></g>';
+ });
+ svg.innerHTML=s;
+ if(canEditBoard())svg.querySelectorAll("[data-node-id]").forEach(el=>el.addEventListener("click",()=>handleBoardNodeClick(Number(el.getAttribute("data-node-id")))));
+ renderTokens();
 }
 function renderTokens(){
  svg.querySelectorAll(".tokens,.route-markers").forEach(e=>e.remove());
@@ -67,21 +93,25 @@ function chooseRoute(id){
 function finishTurn(){
  remaining=0;moving=false;choicesEl.innerHTML="";
  const p=players[current],landed=node(p.pos);
- if(landed.type==="challenge" && !challengeResolved){startTriviaChallenge();return}
+ const landedType=tileTypes[p.pos];
+ if(landedType==="image"&&!challengeResolved){startTriviaChallenge();return}
  challengeResolved=false;
- let result=`${p.name} finished their move on ${landed.label}.`;
- if(landed.type==="score"){p.score+=2;result+=` +2 points! Total: ${p.score}.`;}
- else if(landed.type==="event"){
-   const outcomes=[{points:-1,text:"lost 1 point"},{points:1,text:"gained 1 point"},{points:2,text:"gained 2 points"}];
-   const event=outcomes[Math.floor(Math.random()*outcomes.length)];p.score+=event.points;
-   result+=` Random event: ${event.text}. Total: ${p.score}.`;
- } else if(landed.type==="challenge"){result+=" Trivia challenge completed.";}
- if(p.pos===9){gameOver=true;setStatus(`${p.name} reached the goal! Final scores: ${players.map(x=>`${x.name} ${x.score}`).join(", ")}. Restart to play again.`);document.querySelector("#roll").disabled=true;updateUI();return}
+ let result=p.name+" finished their move on "+landed.label+".";
+ if(landedType==="shop")result+=" Shop tile: shop and item effects will be added in the next implementation phase.";
+ else if(landedType==="coop")result+=" Co-op tile: team challenge rules will be added in the next implementation phase.";
+ if(p.pos===9){gameOver=true;setStatus(p.name+" reached the goal! Final scores: "+players.map(x=>x.name+" "+x.score).join(", ")+". Restart to play again.");document.querySelector("#roll").disabled=true;updateUI();return}
  current=(current+1)%players.length;
- setStatus(`${result} Next up: ${players[current].name}.`);
+ if(current===0){roundsCompleted++;if(roundsCompleted>=roundLimit){gameOver=true;setStatus("Round limit reached. Final scores: "+players.map(x=>x.name+" "+x.score).join(", ")+". The host can add a round to continue.");updateUI();return}}
+ setStatus(result+" Next up: "+players[current].name+".");
  updateUI();document.querySelector("#turn-note").textContent="Ready to roll";
 }
-function resetGame(){if(typeof mpRoomId!=="undefined"&&mpRoomId&&!mpIsHost)return;document.querySelector("#challenge-overlay").style.display="none";players=(typeof mpRoomId!=="undefined"&&mpRoomId&&Array.isArray(mpPlayerRows)&&mpPlayerRows.length?mpPlayerRows.map(p=>({name:p.player_name,pos:0,previous:null,score:0,userId:p.user_id})):[{name:"Player 1",pos:0,previous:null,score:0},{name:"Player 2",pos:0,previous:null,score:0},{name:"Player 3",pos:0,previous:null,score:0},{name:"Player 4",pos:0,previous:null,score:0}]);current=0;remaining=0;moving=false;gameOver=false;challengeResolved=false;challengeBusy=false;document.querySelector("#die").textContent="—";renderBoard();startTurn()}
+function resetGame(){if(typeof mpRoomId!=="undefined"&&mpRoomId&&!mpIsHost)return;document.querySelector("#challenge-overlay").style.display="none";players=(typeof mpRoomId!=="undefined"&&mpRoomId&&Array.isArray(mpPlayerRows)&&mpPlayerRows.length?mpPlayerRows.map(p=>({name:p.player_name,pos:0,previous:null,score:0,userId:p.user_id})):[{name:"Player 1",pos:0,previous:null,score:0},{name:"Player 2",pos:0,previous:null,score:0},{name:"Player 3",pos:0,previous:null,score:0},{name:"Player 4",pos:0,previous:null,score:0}]);current=0;remaining=0;moving=false;gameOver=false;challengeResolved=false;challengeBusy=false;roundsCompleted=0;setupMode=!mpRoomId||mpRoomStatus==="lobby";document.querySelector("#die").textContent="—";renderBoard();startTurn();updateSetupUI()}
 
 document.querySelector("#roll").addEventListener("click",roll);document.querySelector("#reset").addEventListener("click",resetGame);
 resetGame();
+
+document.querySelector("#randomize-board").addEventListener("click",randomizeBoard);
+document.querySelector("#clear-board").addEventListener("click",clearBoardTiles);
+document.querySelector("#setup-start-local").addEventListener("click",startLocalGame);
+document.querySelector("#add-round").addEventListener("click",()=>{if(mpRoomId&&!mpIsHost)return;roundLimit=Math.min(50,roundLimit+1);gameOver=false;updateSetupUI();updateUI();setStatus("The host added a round. "+roundLimit+" rounds are now available.");if(typeof mpStateChanged==="function")mpStateChanged()});
+["allow-image","allow-shop","allow-coop"].forEach(id=>document.querySelector("#"+id).addEventListener("change",()=>{if(!canEditBoard())return;const allowed=allowedTileTypes();Object.keys(tileTypes).forEach(key=>{if(!allowed.includes(tileTypes[key]))delete tileTypes[key]});renderBoard()}));
