@@ -58,7 +58,7 @@ const easyAnimeTags=[
 async function fetchRandomSafebooruEasyImage(kind){
  const candidates=shuffle(easyAnimeTags);
  for(const candidate of candidates){
-  const tags=[candidate.tag,"rating:g",kind==="character"?"solo":"fanart"]; 
+  const tags=[candidate.tag,"rating:g",kind==="character"?"solo":""]; 
   const endpoint="https://safebooru.donmai.us/posts.json?limit=100&tags="+encodeURIComponent(tags.filter(Boolean).join(" "));
   const response=await fetch(endpoint,{headers:{Accept:"application/json"}});
   if(!response.ok)continue;
@@ -66,7 +66,7 @@ async function fetchRandomSafebooruEasyImage(kind){
   const usable=(Array.isArray(posts)?posts:[]).filter(post=>{
    if(post.rating!=="g"||!post.file_url||! /\.(jpg|jpeg|png|webp)(\?|$)/i.test(post.file_url))return false;
    if((post.image_width||0)<250||(post.image_height||0)<250)return false;
-   // Character questions require a tagged character; fan-art questions require a tagged artist.
+   // Character questions require a tagged character; fan-art images require an artist tag. The fanart search tag is intentionally omitted because it excludes otherwise valid fan-made images.
    if(kind==="character"&&(Number(post.tag_count_character)||0)<1)return false;
    if(kind==="fanart"&&(Number(post.tag_count_artist)||0)<1)return false;
    return true;
