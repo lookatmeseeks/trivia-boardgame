@@ -58,7 +58,7 @@ const easyAnimeTags=[
 async function fetchRandomSafebooruEasyImage(kind){
  const candidates=shuffle(easyAnimeTags);
  for(const candidate of candidates){
-  const tags=[candidate.tag,"rating:g",kind==="character"?"solo":""]; 
+  const tags=[candidate.tag,"rating:g",kind==="character"?"solo":"fanart"]; 
   const endpoint="https://safebooru.donmai.us/posts.json?limit=100&tags="+encodeURIComponent(tags.filter(Boolean).join(" "));
   const response=await fetch(endpoint,{headers:{Accept:"application/json"}});
   if(!response.ok)continue;
