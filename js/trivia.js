@@ -36,7 +36,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
  }
 }
 function resolveTriviaAnswer(selected,button){
- if(challengeBusy||challengeResolved)return;
+ if((typeof mpCanAct==="function"&&!mpCanAct())||challengeBusy||challengeResolved)return;
  challengeResolved=true;document.querySelectorAll("#challenge-answers button").forEach(b=>b.disabled=true);
  const msg=document.querySelector("#challenge-status"),next=document.querySelector("#challenge-next");
  if(selected===challengeAnswer){players[current].score+=2;msg.textContent="Correct! "+challengeAnswer+" · +2 points."}
