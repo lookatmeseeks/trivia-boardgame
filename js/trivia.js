@@ -5,6 +5,8 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
  try{
   if(mode==="easy"||mode==="random"){
    entry=await fetchRandomEasyImage();
+  }else if(mode==="medium"){
+   entry=await fetchRandomMangaPanel(typeof getMediumAuthors==="function"?getMediumAuthors():[]);
   }else{
    throw new Error("Only Easy image questions are implemented so far. Medium and Hard are coming in later stages.");
   }
@@ -17,14 +19,14 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
    next.textContent="Try again";next.style.display="block";challengeBusy=false;
   };
   const wrong=shuffle(allAnimeTitles().filter(title=>title.toLowerCase()!==entry.title.toLowerCase())).slice(0,3);
-  const options=shuffle([entry.title,...wrong]);
+  const options=Array.isArray(entry.options)&&entry.options.length===4?entry.options:shuffle([entry.title,...wrong]);
   if(typeof mpRoomId==="undefined"||!mpRoomId)throw new Error("Create or join an online room before starting a question.");
   challengeBusy=false;
   await mpStartSharedTrivia(entry,options);
   return;
-  const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art"};
+  const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art","manga-panel":"Manga panel"};
   const difficultyNames={1:"Easy",2:"Medium",3:"Hard"};
-  document.querySelector("#challenge-title").textContent="Which anime is this from?";
+  document.querySelector("#challenge-title").textContent=entry.type==="manga-panel"?"Which manga is this panel from?":"Which anime is this from?";
   document.querySelector("#challenge-instructions").textContent=(typeNames[entry.type]||"Anime clue")+" clue · "+(difficultyNames[entry.difficulty]||"Unknown difficulty");
   msg.textContent="Each player gets one answer. Pass the device to the next player when prompted.";
   source.innerHTML="Clue: "+entry.label+". Source: "+(entry.sourceUrl||"Safebooru")+(entry.sourceUrl&&entry.type!=="cover"&&entry.type!=="character"?' · <a href="'+entry.sourceUrl+'" target="_blank" rel="noopener" style="color:#66e3ef">View source post</a>':"");
