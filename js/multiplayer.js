@@ -85,6 +85,9 @@ async function mpEnterRoom(room,code,isHost){
  mpRoomId=room.id;mpRoomCode=room.code||code;mpIsHost=isHost;mpRoomStatus=room.status;
  mpSetActions(true);
  await mpRefreshPlayers();
+ setupMode=mpRoomStatus==="lobby";
+ updateSetupUI();
+ renderBoard();
  mpSubscribe();
  if(room.state&&Array.isArray(room.state.players)&&room.state.players.length)mpApplySnapshot(room.state);
  else{
