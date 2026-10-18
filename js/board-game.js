@@ -17,32 +17,94 @@ const colors=["#ff5da8","#66e3ef","#ffd166","#a78bfa"];
 let players=[],current=0,remaining=0,moving=false,turnStarted=false,gameOver=false,challengeResolved=false,challengeBusy=false,challengeAnswer="";
 const svg=document.querySelector("#board"),statusEl=document.querySelector("#status"),choicesEl=document.querySelector("#choices");
 let tileTypes={},roundLimit=5,roundsCompleted=0,setupMode=true,mediumAuthors=[],mediumAuthorSelections=[];
-const tileLabels={"image-easy":"EASY","image-medium":"MEDIUM","image-hard":"HARD",shop:"SHOP",coop:"CO-OP"};
-function allowedTileTypes(){return [document.querySelector("#allow-image-easy")?.checked&&"image-easy",document.querySelector("#allow-image-medium")?.checked&&"image-medium",document.querySelector("#allow-image-hard")?.checked&&"image-hard",document.querySelector("#allow-shop")?.checked&&"shop",document.querySelector("#allow-coop")?.checked&&"coop"].filter(Boolean)}
+let tilePresets=[],editingPresetId=null,presetSequence=1;
+const tileEvents=[
+ {id:"anime-cover",name:"Anime cover",kind:"question",implemented:true},
+ {id:"anime-character",name:"Anime character",kind:"question",implemented:true},
+ {id:"anime-fanart",name:"Anime fan art",kind:"question",implemented:true},
+ {id:"manga-panel",name:"Manga panel",kind:"question",implemented:true},
+ {id:"soundtrack-clip",name:"Soundtrack clip (audio only)",kind:"question",implemented:false},
+ {id:"opening-clip",name:"Opening clip (audio + video)",kind:"question",implemented:false},
+ {id:"manga-character",name:"Manga character",kind:"question",implemented:false},
+ {id:"anime-cosplay",name:"Anime cosplay",kind:"question",implemented:false},
+ {id:"shop",name:"Shop visit",kind:"special",implemented:false},
+ {id:"coop-truth-lie",name:"Co-op: Truth or Lie",kind:"special",implemented:false}
+];
+function getTileEventDefinition(id){return tileEvents.find(event=>event.id===id)||null}
+function getTilePreset(id){return tilePresets.find(preset=>preset.id===id)||null}
+function escapeHTML(value){return String(value).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]))}
+function allowedTileTypes(){return tilePresets.filter(preset=>preset.events.length>0).map(preset=>preset.id)}
 function canEditBoard(){return setupMode&&(!mpRoomId||mpIsHost)&&(!mpRoomId||mpRoomStatus==="lobby")}
 function updateSetupUI(){
  const panel=document.querySelector("#host-setup");if(!panel)return;
  const editable=!mpRoomId||mpIsHost;panel.style.display=editable?"block":"none";
  document.querySelector("#add-round").style.display=mpRoomId?(mpIsHost&&mpRoomStatus==="playing"?"block":"none"):(setupMode?"none":"block");
  document.querySelector("#round-limit").disabled=!canEditBoard();
- ["allow-image-easy","allow-image-medium","allow-image-hard","allow-shop","allow-coop","randomize-board","clear-board"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
+ ["randomize-board","clear-board","preset-name","preset-color","preset-save","preset-cancel"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
  document.querySelector("#round-limit").value=roundLimit;
- const authorInput=document.querySelector("#medium-author-search"),searchButton=document.querySelector("#medium-author-search-button");if(authorInput)authorInput.disabled=!canEditBoard();if(searchButton)searchButton.disabled=!canEditBoard();renderMediumAuthorSelections();
- document.querySelector("#setup-status").textContent=setupMode?"Edit the board, choose allowed tile types, then start the game.":"Round "+Math.min(roundsCompleted+1,roundLimit)+" of "+roundLimit+" · "+roundsCompleted+" completed.";
+ const authorInput=document.querySelector("#medium-author-search"),searchButton=document.querySelector("#medium-author-search-button");if(authorInput)authorInput.disabled=!canEditBoard();if(searchButton)searchButton.disabled=!canEditBoard();renderMediumAuthorSelections();renderPresetEditor();
+ document.querySelector("#setup-status").textContent=setupMode?"Create presets, choose their events, then assign presets to board tiles.":"Round "+Math.min(roundsCompleted+1,roundLimit)+" of "+roundLimit+" · "+roundsCompleted+" completed.";
 }
-function handleBoardNodeClick(id){if(!canEditBoard()||id===0||id===9)return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Enable at least one tile type first.";return}const currentType=tileTypes[id],index=allowed.indexOf(currentType);if(index<0)tileTypes[id]=allowed[0];else if(index===allowed.length-1)delete tileTypes[id];else tileTypes[id]=allowed[index+1];renderBoard()}
-function randomizeBoard(){if(!canEditBoard())return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Enable at least one tile type first.";return}tileTypes={};nodes.filter(n=>n.id!==0&&n.id!==9).forEach(n=>{tileTypes[n.id]=allowed[Math.floor(Math.random()*allowed.length)]});renderBoard();document.querySelector("#setup-status").textContent="Tiles randomly distributed. Click nodes to adjust them."}
-function clearBoardTiles(){if(!canEditBoard())return;tileTypes={};renderBoard();document.querySelector("#setup-status").textContent="All tiles cleared."}
+function handleBoardNodeClick(id){if(!canEditBoard()||id===0||id===9)return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Create a preset with at least one event first.";return}const currentId=tileTypes[id],index=allowed.indexOf(currentId);if(index<0)tileTypes[id]=allowed[0];else if(index===allowed.length-1)delete tileTypes[id];else tileTypes[id]=allowed[index+1];renderBoard();if(typeof mpStateChanged==="function")mpStateChanged()}
+function randomizeBoard(){if(!canEditBoard())return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Create a preset with at least one event first.";return}tileTypes={};nodes.filter(n=>n.id!==0&&n.id!==9).forEach(n=>{tileTypes[n.id]=allowed[Math.floor(Math.random()*allowed.length)]});renderBoard();if(typeof mpStateChanged==="function")mpStateChanged();document.querySelector("#setup-status").textContent="Presets randomly distributed. Click nodes to cycle through them."}
+function clearBoardTiles(){if(!canEditBoard())return;tileTypes={};renderBoard();if(typeof mpStateChanged==="function")mpStateChanged();document.querySelector("#setup-status").textContent="All tiles cleared."}
+function renderPresetEditor(){
+ const list=document.querySelector("#preset-list"),eventsEl=document.querySelector("#preset-events"),save=document.querySelector("#preset-save"),nameInput=document.querySelector("#preset-name"),colorInput=document.querySelector("#preset-color");
+ if(!list||!eventsEl)return;
+ list.innerHTML="";
+ if(!tilePresets.length)list.innerHTML='<div class="note">No presets yet. Create one below.</div>';
+ tilePresets.forEach(preset=>{
+  const row=document.createElement("div");row.style.cssText="display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:7px;align-items:center;padding:8px;border:1px solid #424a65;border-radius:9px;background:#171c2b";
+  const swatch=document.createElement("span");swatch.style.cssText="width:12px;height:28px;border-radius:5px;background:"+preset.color;
+  const detail=document.createElement("div");detail.style.minWidth="0";
+  const title=document.createElement("strong");title.textContent=preset.name;
+  const summary=document.createElement("div");summary.className="note";summary.textContent=preset.events.map(id=>getTileEventDefinition(id)?.name||id).join(", ")||"No events selected";
+  detail.append(title,summary);
+  const edit=document.createElement("button");edit.type="button";edit.className="secondary";edit.style.width="auto";edit.textContent="Edit";edit.disabled=!canEditBoard();edit.addEventListener("click",()=>loadPresetForEdit(preset.id));
+  const remove=document.createElement("button");remove.type="button";remove.className="secondary";remove.style.width="auto";remove.textContent="×";remove.title="Delete preset";remove.disabled=!canEditBoard();remove.addEventListener("click",()=>{if(!canEditBoard())return;tilePresets=tilePresets.filter(p=>p.id!==preset.id);Object.keys(tileTypes).forEach(key=>{if(tileTypes[key]===preset.id)delete tileTypes[key]});if(editingPresetId===preset.id)clearPresetForm();renderBoard();renderPresetEditor();if(typeof mpStateChanged==="function")mpStateChanged()});
+  row.append(swatch,detail,edit,remove);list.append(row);
+ });
+ eventsEl.innerHTML="";
+ tileEvents.forEach(event=>{
+  const label=document.createElement("label");label.className="setup-check";label.style.padding="3px 0";
+  const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.value=event.id;checkbox.dataset.presetEvent="1";
+  const title=document.createElement("span");title.textContent=event.name+(event.implemented?"":" (not implemented yet)");
+  label.append(checkbox,title);eventsEl.append(label);
+ });
+ if(save)save.textContent=editingPresetId?"Update preset":"Save preset";
+ if(nameInput)nameInput.disabled=!canEditBoard();if(colorInput)colorInput.disabled=!canEditBoard();
+}
+function clearPresetForm(){editingPresetId=null;document.querySelector("#preset-name").value="";document.querySelector("#preset-color").value="#69df9b";document.querySelectorAll("[data-preset-event]").forEach(el=>el.checked=false);renderPresetEditor()}
+function loadPresetForEdit(id){
+ const preset=getTilePreset(id);if(!preset)return;editingPresetId=id;
+ document.querySelector("#preset-name").value=preset.name;document.querySelector("#preset-color").value=preset.color;
+ document.querySelectorAll("[data-preset-event]").forEach(el=>el.checked=preset.events.includes(el.value));
+ document.querySelector("#preset-save").textContent="Update preset";
+}
+function savePreset(){
+ if(!canEditBoard())return;
+ const name=document.querySelector("#preset-name").value.trim(),color=document.querySelector("#preset-color").value;
+ const events=[...document.querySelectorAll("[data-preset-event]:checked")].map(el=>el.value);
+ if(!name){document.querySelector("#setup-status").textContent="Give the preset a name.";return}
+ if(!events.length){document.querySelector("#setup-status").textContent="Select at least one event for this preset.";return}
+ if(tilePresets.some(p=>p.name.toLowerCase()===name.toLowerCase()&&p.id!==editingPresetId)){document.querySelector("#setup-status").textContent="Preset names must be unique.";return}
+ if(editingPresetId){const preset=getTilePreset(editingPresetId);if(preset)Object.assign(preset,{name,color,events})}
+ else tilePresets.push({id:"preset-"+(presetSequence++),name,color,events});
+ clearPresetForm();renderBoard();if(typeof mpStateChanged==="function")mpStateChanged();
+ document.querySelector("#setup-status").textContent="Preset saved. Click a board node to assign it.";
+}
+document.querySelector("#preset-save").addEventListener("click",savePreset);
+document.querySelector("#preset-cancel").addEventListener("click",clearPresetForm);
 function node(id){return nodes.find(n=>n.id===id)}
 function renderBoard(){
  let s="";
  edges.forEach(([a,b])=>{let A=node(a),B=node(b);s+='<line class="edge" x1="'+A.x+'" y1="'+A.y+'" x2="'+B.x+'" y2="'+B.y+'"/><line class="edge-highlight" x1="'+A.x+'" y1="'+A.y+'" x2="'+B.x+'" y2="'+B.y+'"/>'});
  nodes.forEach(n=>{
-  const type=tileTypes[n.id];
-  const cls=type==="image-easy"?"tile image-easy-space":type==="image-medium"?"tile image-medium-space":type==="image-hard"?"tile image-hard-space":type==="shop"?"tile shop-space":type==="coop"?"tile coop-space":n.type==="start"?"tile start":"tile";
-  const label=type?(tileLabels[type]||type):n.label;
-  const editor=canEditBoard()&&n.id!==0&&n.id!==9;
-  s+='<g><circle class="'+cls+(editor?" editor-tile":"")+'" data-node-id="'+n.id+'" cx="'+n.x+'" cy="'+n.y+'" r="'+(adjacency[n.id].length>2?23:19)+'"/><text class="tile-label" data-node-id="'+n.id+'" x="'+n.x+'" y="'+(n.y+4)+'">'+label+'</text></g>';
+  const preset=getTilePreset(tileTypes[n.id]),editor=canEditBoard()&&n.id!==0&&n.id!==9;
+  const label=preset?(preset.name.length>9?preset.name.slice(0,8)+"…":preset.name):n.label;
+  const fill=preset?escapeHTML(preset.color):null;
+  const cls=preset?"tile preset-tile":n.type==="start"?"tile start":"tile";
+  s+='<g><circle class="'+cls+(editor?" editor-tile":"")+'"'+(fill?' style="fill:'+fill+';stroke:'+fill+'"':"")+' data-node-id="'+n.id+'" cx="'+n.x+'" cy="'+n.y+'" r="'+(adjacency[n.id].length>2?23:19)+'"/><text class="tile-label" data-node-id="'+n.id+'" x="'+n.x+'" y="'+(n.y+4)+'">'+escapeHTML(label)+'</text></g>';
  });
  svg.innerHTML=s;
  if(canEditBoard())svg.querySelectorAll("[data-node-id]").forEach(el=>el.addEventListener("click",()=>handleBoardNodeClick(Number(el.getAttribute("data-node-id")))));
@@ -102,13 +164,22 @@ function chooseRoute(id){
 function finishTurn(){
  remaining=0;moving=false;choicesEl.innerHTML="";
  const p=players[current],landed=node(p.pos);
- const landedType=tileTypes[p.pos];
- if((landedType==="image-easy"||landedType==="image-medium")&&!challengeResolved){startTriviaChallenge(landedType==="image-medium"?"medium":"easy");return}
+ const preset=getTilePreset(tileTypes[p.pos]);
+ if(preset&&!challengeResolved){
+  const possible=preset.events.filter(id=>getTileEventDefinition(id));
+  const eventId=possible[Math.floor(Math.random()*possible.length)];
+  const event=getTileEventDefinition(eventId);
+  if(event&&event.kind==="question"&&event.implemented){startTriviaChallenge(eventId);return}
+  challengeResolved=false;
+  const detail=event?(event.implemented?event.name:event.name+" is selected, but its gameplay has not been implemented yet."):"This preset has no valid events.";
+  if(p.pos===9){gameOver=true;setStatus(p.name+" reached the goal! Final scores: "+players.map(x=>x.name+" "+x.score).join(", ")+". Restart to play again.");document.querySelector("#roll").disabled=true;updateUI();return}
+  current=(current+1)%players.length;
+  if(current===0){roundsCompleted++;if(roundsCompleted>=roundLimit){gameOver=true;setStatus("Round limit reached. Final scores: "+players.map(x=>x.name+" "+x.score).join(", ")+". The host can add a round to continue.");updateUI();return}}
+  setStatus(p.name+" landed on "+preset.name+": "+detail+" Next up: "+players[current].name+".");
+  updateUI();document.querySelector("#turn-note").textContent="Ready to roll";return;
+ }
  challengeResolved=false;
  let result=p.name+" finished their move on "+landed.label+".";
- if(landedType==="image-hard")result+=" Hard image questions are not implemented yet; this tile is skipped for now.";
- if(landedType==="shop")result+=" Shop tile: shop and item effects will be added in the next implementation phase.";
- else if(landedType==="coop")result+=" Co-op tile: team challenge rules will be added in the next implementation phase.";
  if(p.pos===9){gameOver=true;setStatus(p.name+" reached the goal! Final scores: "+players.map(x=>x.name+" "+x.score).join(", ")+". Restart to play again.");document.querySelector("#roll").disabled=true;updateUI();return}
  current=(current+1)%players.length;
  if(current===0){roundsCompleted++;if(roundsCompleted>=roundLimit){gameOver=true;setStatus("Round limit reached. Final scores: "+players.map(x=>x.name+" "+x.score).join(", ")+". The host can add a round to continue.");updateUI();return}}
@@ -157,4 +228,5 @@ document.querySelector("#medium-author-search-button").addEventListener("click",
 document.querySelector("#medium-author-search").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();searchMediumAuthors()}});
 
 document.querySelector("#add-round").addEventListener("click",()=>{if(mpRoomId&&!mpIsHost)return;roundLimit=Math.min(50,roundLimit+1);gameOver=false;updateSetupUI();updateUI();setStatus("The host added a round. "+roundLimit+" rounds are now available.");if(typeof mpStateChanged==="function")mpStateChanged()});
-["allow-image-easy","allow-image-medium","allow-image-hard","allow-shop","allow-coop"].forEach(id=>document.querySelector("#"+id).addEventListener("change",()=>{if(!canEditBoard())return;const allowed=allowedTileTypes();Object.keys(tileTypes).forEach(key=>{if(!allowed.includes(tileTypes[key]))delete tileTypes[key]});renderBoard()}));
+renderPresetEditor();
+
