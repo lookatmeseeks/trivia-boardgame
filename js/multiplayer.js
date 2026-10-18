@@ -22,7 +22,7 @@ async function mpEnsureClient(){
  }
 }
 function mpCurrentSnapshot(){
- return {players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—"};
+ return {updatedBy:mpUserId,players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—"};
 }
 function mpStateChanged(){
  if(!mpRoomId||mpApplyingState||mpRoomStatus!=="playing")return;
@@ -30,7 +30,7 @@ function mpStateChanged(){
  mpSaveTimer=setTimeout(()=>mpPublishState().catch(e=>mpSetStatus("Sync error: "+(e.message||e))),180);
 }
 async function mpPublishState(){
- if(!mpRoomId||mpApplyingState||!mpCanAct())return;
+ if(!mpRoomId||mpApplyingState)return;
  const snapshot=mpCurrentSnapshot();
  const {error}=await mpClient.rpc("save_game_state",{p_code:mpRoomCode,p_state:snapshot,p_status:"playing"});
  if(error)mpSetStatus("Could not sync game: "+error.message);
@@ -52,7 +52,7 @@ function mpSubscribe(){
    const room=payload.new;
    mpRoomStatus=room.status;
    if(room.state&&Array.isArray(room.state.players)&&room.state.players.length){
-    if(!mpApplyingState)mpApplySnapshot(room.state);
+    if(!mpApplyingState&&room.state.updatedBy!==mpUserId)mpApplySnapshot(room.state);
    }
    if(mpRoomStatus==="playing")mpSetActions(true);
    mpRefreshPlayers().catch(e=>mpSetStatus("Room refresh failed: "+e.message));
