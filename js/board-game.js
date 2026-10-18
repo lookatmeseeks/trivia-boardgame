@@ -102,9 +102,11 @@ function finishTurn(){
  remaining=0;moving=false;choicesEl.innerHTML="";
  const p=players[current],landed=node(p.pos);
  const landedType=tileTypes[p.pos];
- if(typeof landedType==="string"&&landedType.startsWith("image-")&&!challengeResolved){startTriviaChallenge("random");return}
+ if(landedType==="image-easy"&&!challengeResolved){startTriviaChallenge("easy");return}
  challengeResolved=false;
  let result=p.name+" finished their move on "+landed.label+".";
+ if(landedType==="image-medium")result+=" Medium image questions are not implemented yet; this tile is skipped for now.";
+ else if(landedType==="image-hard")result+=" Hard image questions are not implemented yet; this tile is skipped for now.";
  if(landedType==="shop")result+=" Shop tile: shop and item effects will be added in the next implementation phase.";
  else if(landedType==="coop")result+=" Co-op tile: team challenge rules will be added in the next implementation phase.";
  if(p.pos===9){gameOver=true;setStatus(p.name+" reached the goal! Final scores: "+players.map(x=>x.name+" "+x.score).join(", ")+". Restart to play again.");document.querySelector("#roll").disabled=true;updateUI();return}
