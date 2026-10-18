@@ -17,8 +17,8 @@ const colors=["#ff5da8","#66e3ef","#ffd166","#a78bfa"];
 let players=[],current=0,remaining=0,moving=false,turnStarted=false,gameOver=false,challengeResolved=false,challengeBusy=false,challengeAnswer="";
 const svg=document.querySelector("#board"),statusEl=document.querySelector("#status"),choicesEl=document.querySelector("#choices");
 let tileTypes={},roundLimit=5,roundsCompleted=0,setupMode=true;
-const tileLabels={image:"IMG",shop:"SHOP",coop:"CO-OP"};
-function allowedTileTypes(){return [document.querySelector("#allow-image")?.checked&&"image",document.querySelector("#allow-shop")?.checked&&"shop",document.querySelector("#allow-coop")?.checked&&"coop"].filter(Boolean)}
+const tileLabels={"image-easy":"EASY","image-medium":"MEDIUM","image-hard":"HARD",shop:"SHOP",coop:"CO-OP"};
+function allowedTileTypes(){return [document.querySelector("#allow-image-easy")?.checked&&"image-easy",document.querySelector("#allow-image-medium")?.checked&&"image-medium",document.querySelector("#allow-image-hard")?.checked&&"image-hard",document.querySelector("#allow-shop")?.checked&&"shop",document.querySelector("#allow-coop")?.checked&&"coop"].filter(Boolean)}
 function canEditBoard(){return setupMode&&(!mpRoomId||mpIsHost)&&(!mpRoomId||mpRoomStatus==="lobby")}
 function updateSetupUI(){
  const panel=document.querySelector("#host-setup");if(!panel)return;
@@ -38,7 +38,7 @@ function renderBoard(){
  edges.forEach(([a,b])=>{let A=node(a),B=node(b);s+='<line class="edge" x1="'+A.x+'" y1="'+A.y+'" x2="'+B.x+'" y2="'+B.y+'"/><line class="edge-highlight" x1="'+A.x+'" y1="'+A.y+'" x2="'+B.x+'" y2="'+B.y+'"/>'});
  nodes.forEach(n=>{
   const type=tileTypes[n.id];
-  const cls=type==="image"?"tile image-space":type==="shop"?"tile shop-space":type==="coop"?"tile coop-space":n.type==="start"?"tile start":"tile";
+  const cls=type==="image-easy"?"tile image-easy-space":type==="image-medium"?"tile image-medium-space":type==="image-hard"?"tile image-hard-space":type==="shop"?"tile shop-space":type==="coop"?"tile coop-space":n.type==="start"?"tile start":"tile";
   const label=type?(tileLabels[type]||type):n.label;
   const editor=canEditBoard()&&n.id!==0&&n.id!==9;
   s+='<g><circle class="'+cls+(editor?" editor-tile":"")+'" data-node-id="'+n.id+'" cx="'+n.x+'" cy="'+n.y+'" r="'+(adjacency[n.id].length>2?23:19)+'"/><text class="tile-label" data-node-id="'+n.id+'" x="'+n.x+'" y="'+(n.y+4)+'">'+label+'</text></g>';
@@ -121,4 +121,4 @@ resetGame();
 document.querySelector("#randomize-board").addEventListener("click",randomizeBoard);
 document.querySelector("#clear-board").addEventListener("click",clearBoardTiles);
 document.querySelector("#add-round").addEventListener("click",()=>{if(mpRoomId&&!mpIsHost)return;roundLimit=Math.min(50,roundLimit+1);gameOver=false;updateSetupUI();updateUI();setStatus("The host added a round. "+roundLimit+" rounds are now available.");if(typeof mpStateChanged==="function")mpStateChanged()});
-["allow-image","allow-shop","allow-coop"].forEach(id=>document.querySelector("#"+id).addEventListener("change",()=>{if(!canEditBoard())return;const allowed=allowedTileTypes();Object.keys(tileTypes).forEach(key=>{if(!allowed.includes(tileTypes[key]))delete tileTypes[key]});renderBoard()}));
+["allow-image-easy","allow-image-medium","allow-image-hard","allow-shop","allow-coop"].forEach(id=>document.querySelector("#"+id).addEventListener("change",()=>{if(!canEditBoard())return;const allowed=allowedTileTypes();Object.keys(tileTypes).forEach(key=>{if(!allowed.includes(tileTypes[key]))delete tileTypes[key]});renderBoard()}));
