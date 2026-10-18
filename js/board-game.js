@@ -39,11 +39,13 @@ function updateUI(){
  document.querySelector("#roll").disabled=remaining>0||moving;
  document.querySelector("#players").innerHTML=players.map((p,i)=>`<div class="player-row"><span class="avatar" style="background:${colors[i]}"></span><span class="name">${p.name}${i===current?" · turn":""}<br><small>Tile ${node(p.pos).label}</small></span><strong>${p.score} pts</strong></div>`).join("");
  renderTokens();
+ if(typeof mpStateChanged==="function")mpStateChanged();
+ if(typeof mpCanAct==="function"&&mpRoomId){document.querySelector("#roll").disabled=!mpCanAct()||remaining>0||moving||gameOver;document.querySelector("#reset").disabled=!mpIsHost;}
 }
 function setStatus(s){statusEl.textContent=s}
 function startTurn(){remaining=0;moving=false;choicesEl.innerHTML="";document.querySelector("#die").textContent="—";updateUI();setStatus(`${players[current].name}, roll to begin your turn.`)}
 function roll(){
- if(remaining>0||moving||gameOver)return;remaining=1+Math.floor(Math.random()*6);document.querySelector("#die").textContent=remaining;turnStarted=true;
+ if((typeof mpCanAct==="function"&&!mpCanAct())||remaining>0||moving||gameOver)return;remaining=1+Math.floor(Math.random()*6);document.querySelector("#die").textContent=remaining;turnStarted=true;
  setStatus(`${players[current].name} rolled ${remaining}. Choose a route whenever you reach a junction.`);updateUI();advanceOptions();
 }
 function advanceOptions(){
@@ -57,7 +59,7 @@ function advanceOptions(){
  document.querySelector("#roll").disabled=true;renderTokens();
 }
 function chooseRoute(id){
- if(remaining<=0)return;const p=players[current];if(!adjacency[p.pos].includes(id))return;
+ if((typeof mpCanAct==="function"&&!mpCanAct())||remaining<=0)return;const p=players[current];if(!adjacency[p.pos].includes(id))return;
  p.previous=p.pos;p.pos=id;remaining--;moving=true;choicesEl.innerHTML="";renderTokens();updateUI();
  setStatus(`${p.name} moved to tile ${node(id).label}.`);
  setTimeout(()=>{moving=false;if(remaining>0)advanceOptions();else finishTurn()},360);
@@ -79,7 +81,7 @@ function finishTurn(){
  setStatus(`${result} Next up: ${players[current].name}.`);
  updateUI();document.querySelector("#turn-note").textContent="Ready to roll";
 }
-function resetGame(){document.querySelector("#challenge-overlay").style.display="none";players=[{name:"Player 1",pos:0,previous:null,score:0},{name:"Player 2",pos:0,previous:null,score:0},{name:"Player 3",pos:0,previous:null,score:0},{name:"Player 4",pos:0,previous:null,score:0}];current=0;remaining=0;moving=false;gameOver=false;challengeResolved=false;challengeBusy=false;document.querySelector("#die").textContent="—";renderBoard();startTurn()}
+function resetGame(){if(typeof mpRoomId!=="undefined"&&mpRoomId&&!mpIsHost)return;document.querySelector("#challenge-overlay").style.display="none";players=(typeof mpRoomId!=="undefined"&&mpRoomId&&Array.isArray(mpPlayerRows)&&mpPlayerRows.length?mpPlayerRows.map(p=>({name:p.player_name,pos:0,previous:null,score:0,userId:p.user_id})):[{name:"Player 1",pos:0,previous:null,score:0},{name:"Player 2",pos:0,previous:null,score:0},{name:"Player 3",pos:0,previous:null,score:0},{name:"Player 4",pos:0,previous:null,score:0}]);current=0;remaining=0;moving=false;gameOver=false;challengeResolved=false;challengeBusy=false;document.querySelector("#die").textContent="—";renderBoard();startTurn()}
 
 document.querySelector("#roll").addEventListener("click",roll);document.querySelector("#reset").addEventListener("click",resetGame);
 resetGame();
