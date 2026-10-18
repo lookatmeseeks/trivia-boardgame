@@ -1,4 +1,5 @@
 let localTriviaAnswered=[];
+let localTriviaCorrect=[];
 let localTriviaIndex=0;
 
 async function startTriviaChallenge(mode=document.querySelector("#challenge-mode")?.value||"random"){
@@ -31,7 +32,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
    await mpStartSharedTrivia(entry,options);
    return;
   }
-  localTriviaAnswered=players.map(()=>false);localTriviaIndex=0;
+  localTriviaAnswered=players.map(()=>false);localTriviaCorrect=players.map(()=>false);localTriviaIndex=0;
   answers.innerHTML="";
   options.forEach(title=>{const button=document.createElement("button");button.textContent=title;button.onclick=()=>resolveTriviaAnswer(title,button);answers.appendChild(button)});
   const typeNames={cover:"Cover",character:"Character",location:"Location / scenery",attack:"Attack / battle scene"};
@@ -61,20 +62,21 @@ async function resolveTriviaAnswer(selected,button){
  if((typeof mpCanAct==="function"&&!mpCanAct()))return;
  const msg=document.querySelector("#challenge-status"),next=document.querySelector("#challenge-next");
  document.querySelectorAll("#challenge-answers button").forEach(b=>b.disabled=true);
- const answeringPlayer=localTriviaIndex;
+ const answeringPlayer=(current+localTriviaIndex)%players.length;
  const isCorrect=selected===challengeAnswer;
- localTriviaAnswered[answeringPlayer]=true;
+ localTriviaAnswered[answeringPlayer]=true;localTriviaCorrect[answeringPlayer]=isCorrect;
  if(isCorrect){players[answeringPlayer].score+=answeringPlayer===current?2:1;}
  localTriviaIndex++;
  updateUI();
  if(localTriviaIndex<players.length){
-  msg.textContent=players[answeringPlayer].name+(isCorrect?" answered correctly.":" answered incorrectly.")+" Next: "+players[localTriviaIndex].name+".";
-  document.querySelector("#challenge-instructions").textContent="Pass the device to "+players[localTriviaIndex].name+", then let them choose an answer.";
+  const nextPlayer=(current+localTriviaIndex)%players.length;
+  msg.textContent=players[answeringPlayer].name+(isCorrect?" answered correctly.":" answered incorrectly.")+" Next: "+players[nextPlayer].name+".";
+  document.querySelector("#challenge-instructions").textContent="Pass the device to "+players[nextPlayer].name+", then let them choose an answer.";
   document.querySelectorAll("#challenge-answers button").forEach(b=>{b.disabled=false;b.onclick=()=>resolveTriviaAnswer(b.textContent,b)});
   return;
  }
  challengeResolved=true;
- msg.textContent="All players answered. Correct answer: "+challengeAnswer+". Points awarded: "+players.map((p,i)=>p.name+" "+(localTriviaAnswered[i]&&p.score>=0?"checked":"")).filter((x)=>x.includes("checked")).join(", ")+".";
+ msg.textContent="All players answered. Correct answer: "+challengeAnswer+". "+players.map((p,i)=>p.name+": "+(localTriviaCorrect[i]?(i===current?"+2":"+1"):"0")).join(" · ")+".";
  document.querySelector("#challenge-instructions").textContent="Question complete.";
  next.textContent="Continue turn";next.style.display="block";
  document.querySelector("#challenge-source").textContent+=" · Answer: "+challengeAnswer;
