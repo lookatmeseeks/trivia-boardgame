@@ -61,8 +61,7 @@ function mpRenderSharedChallenge(challenge){
  overlay.style.display="flex";
  document.querySelector("#challenge-title").textContent=challenge.type==="manga-panel"?"Which manga is this panel from?":"Which anime is this from?";
  const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art","manga-panel":"Manga panel"};
- const difficultyNames={1:"Easy",2:"Medium",3:"Hard"};
- document.querySelector("#challenge-instructions").textContent=(typeNames[challenge.type]||"Anime clue")+" clue · "+(difficultyNames[challenge.difficulty]||"Unknown difficulty");
+ document.querySelector("#challenge-instructions").textContent=(typeNames[challenge.type]||"Anime clue")+" event";
  if(media.dataset.imageUrl!==challenge.imageUrl){media.dataset.imageUrl=challenge.imageUrl;media.innerHTML="";const img=document.createElement("img");img.alt=challenge.imageLabel||"Anime clue";img.src=challenge.imageUrl;img.onerror=()=>{media.textContent="The clue image could not be loaded."};media.appendChild(img)}
  answers.innerHTML="";
  const alreadyAnswered=typeof mpTriviaAnswered==="function"&&mpTriviaAnswered();
