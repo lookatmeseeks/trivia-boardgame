@@ -38,7 +38,9 @@
   <label class="setup-check"><input id="allow-image-hard" type="checkbox" checked> Hard image question <span class="difficulty-dot hard-dot"></span></label>
   <label class="setup-check"><input id="allow-shop" type="checkbox" checked> Shop</label>
   <label class="setup-check"><input id="allow-coop" type="checkbox" checked> Co-op challenge</label>
-  <p class="note">Before starting, click a route node except START and GOAL to cycle through enabled tile types. Easy, medium and hard image questions are separate tile types. Randomize fills all available nodes with a random enabled type.</p>
+  <label class="note" for="medium-authors" style="display:block;margin-top:12px">Allowed manga authors/artists for Medium (one MangaDex name per line; blank allows all)</label>
+  <textarea id="medium-authors" rows="3" placeholder="e.g. ONE&#10;Tatsuki Fujimoto" style="width:100%;resize:vertical;padding:10px;border-radius:9px;background:#111521;color:#f5f5ff;border:1px solid #424a65;font:inherit"></textarea>
+  <p class="note">Names must match MangaDex author/artist names. This filter applies to manga panels only. Before starting, click a route node except START and GOAL to cycle through enabled tile types.</p>
   <button class="secondary" id="randomize-board">Randomly distribute tiles</button>
   <button class="secondary" id="clear-board" style="margin-top:8px">Clear all tiles</button>
     <button class="secondary" id="add-round" style="margin-top:8px;display:none">Add one round</button>
@@ -46,14 +48,14 @@
  </section>
  <section><div class="section-title">Current turn</div><div class="current"><div class="avatar" id="current-avatar"></div><div><strong id="current-name">Player 1</strong><small id="turn-note">Ready to roll</small></div></div></section>
  <section><div class="section-title">Dice</div><div class="dice-row"><div class="die" id="die">—</div><button class="primary" id="roll">Roll dice</button></div></section>
- <section><div class="section-title">Game status</div><div class="status" id="status" aria-live="polite">Player 1, roll to begin your turn.</div><div id="choices" class="choices" style="margin-top:10px"></div><div style="display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin-top:10px"><label for="challenge-mode" class="note">Test clue type (online room required)</label><select id="challenge-mode" style="width:100%;padding:10px;border-radius:9px;background:#22283b;color:#f5f5ff;border:1px solid #424a65"><option value="easy">Easy — anime covers / characters / fan art</option></select><button class="secondary" id="challenge-test">Test selected clue</button></div></section>
+ <section><div class="section-title">Game status</div><div class="status" id="status" aria-live="polite">Player 1, roll to begin your turn.</div><div id="choices" class="choices" style="margin-top:10px"></div><div style="display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin-top:10px"><label for="challenge-mode" class="note">Test clue type (online room required)</label><select id="challenge-mode" style="width:100%;padding:10px;border-radius:9px;background:#22283b;color:#f5f5ff;border:1px solid #424a65"><option value="easy">Easy — anime covers / characters / fan art</option><option value="medium">Medium — manga panels</option></select><button class="secondary" id="challenge-test">Test selected clue</button></div></section>
  <section><div class="section-title">How to play</div><div class="note">Roll a d6 and move one tile at a time. At junctions, choose a route. Easy image tiles use multiple choice. The first player to answer correctly ends the question and earns 2 points; everyone else gets no points. Shop and co-op tile effects are not implemented yet.</div></section>
 </aside>
 </main>
 <footer>Prototype · Online rooms and shared board state are in testing.</footer>
 <div class="challenge-overlay" id="challenge-overlay" role="dialog" aria-modal="true" aria-labelledby="challenge-title">
  <div class="challenge-dialog">
-  <div class="eyebrow">Anime discovery test</div><h2 id="challenge-title">Which anime is this from?</h2>
+  <div class="eyebrow">Anime Party challenge</div><h2 id="challenge-title">Which anime or manga is this from?</h2>
   <div class="note" id="challenge-instructions">Picking a random Easy clue: anime cover, anime character, or anime fan art…</div>
   <div class="challenge-media" id="challenge-media"><div class="note">Searching…</div></div>
   <div class="challenge-answers" id="challenge-answers"></div>
