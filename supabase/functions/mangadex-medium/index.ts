@@ -3,7 +3,7 @@
 const API = "https://api.mangadex.org";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-supabase-api-version, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json; charset=utf-8"
 };
@@ -142,7 +142,12 @@ async function randomPanel(authorNames) {
 }
 
 Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (request.method === "OPTIONS") {
+    // Supabase JS versions can send additional headers; explicitly allow those requested by the browser preflight.
+    const requestedHeaders = request.headers.get("Access-Control-Request-Headers");
+    const headers = requestedHeaders ? { ...corsHeaders, "Access-Control-Allow-Headers": requestedHeaders } : corsHeaders;
+    return new Response("ok", { headers });
+  }
   if (request.method !== "POST") return reply({ error: "Use POST for manga questions." }, 405);
   try {
     const body = await request.json();
