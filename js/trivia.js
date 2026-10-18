@@ -3,9 +3,9 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
  overlay.style.display="flex";media.innerHTML='<div class="note">Choosing a clue image…</div>';answers.innerHTML="";msg.textContent="Choosing an image and clue type.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";lastAnimeBatch=[];
  let entry;
  try{
-  if(mode==="easy"||mode==="random"){
-   entry=await fetchRandomEasyImage();
-  }else if(mode==="medium"){
+  if(mode==="easy"||mode==="random"||["anime-cover","anime-character","anime-fanart"].includes(mode)){
+   entry=await fetchRandomEasyImage(mode);
+  }else if(mode==="medium"||mode==="manga-panel"){
    entry=await fetchRandomMangaPanel(typeof getMediumAuthors==="function"?getMediumAuthors():[],typeof getMediumAuthorIds==="function"?getMediumAuthorIds():[]);
   }else{
    throw new Error("Only Easy image questions are implemented so far. Medium and Hard are coming in later stages.");
