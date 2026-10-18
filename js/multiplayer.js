@@ -21,7 +21,7 @@ async function mpEnsureClient(){
  }
 }
 function mpCurrentSnapshot(){
- return {updatedBy:mpUserId,players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—",challenge:mpChallenge,tileTypes,roundLimit,roundsCompleted};
+ return {updatedBy:mpUserId,mediumAuthors:typeof getMediumAuthors==="function"?getMediumAuthors():[],players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—",challenge:mpChallenge,tileTypes,roundLimit,roundsCompleted};
 }
 function mpStateChanged(){
  if(!mpRoomId||mpApplyingState||mpRoomStatus!=="playing")return;
@@ -68,6 +68,7 @@ function mpApplySnapshot(state){
   remaining=Math.max(0,Number(state.remaining)||0);
   moving=false;gameOver=!!state.gameOver;challengeResolved=state.challenge?.status==="resolved";mpChallenge=state.challenge||null;
   if(state.tileTypes&&typeof state.tileTypes==="object")tileTypes=state.tileTypes;
+  if(Array.isArray(state.mediumAuthors)){mediumAuthors=state.mediumAuthors.filter(x=>typeof x==="string");const authorInput=document.querySelector("#medium-authors");if(authorInput&&document.activeElement!==authorInput)authorInput.value=mediumAuthors.join("\n");}
   if(Number.isFinite(Number(state.roundLimit))&&Number(state.roundLimit)>0)roundLimit=Number(state.roundLimit);
   if(Number.isFinite(Number(state.roundsCompleted)))roundsCompleted=Number(state.roundsCompleted);
   setupMode=false;
