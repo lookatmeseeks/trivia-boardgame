@@ -131,7 +131,7 @@ function renderMediumAuthorSelections(){
  mediumAuthors.forEach((name,index)=>{
   const row=document.createElement("div");row.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid #424a65;border-radius:8px;background:#171c2b";
   const label=document.createElement("span");label.textContent=name;label.style.cssText="overflow-wrap:anywhere";
-  const remove=document.createElement("button");remove.className="secondary";remove.type="button";remove.textContent="Remove";remove.disabled=!canEditBoard();remove.addEventListener("click",()=>{if(!canEditBoard())return;mediumAuthors.splice(index,1);mediumAuthorSelections=mediumAuthorSelections.filter(a=>a.name!==name);renderMediumAuthorSelections();if(typeof mpStateChanged==="function")mpStateChanged()});
+  const remove=document.createElement("button");remove.className="secondary";remove.type="button";remove.textContent="Remove";remove.disabled=!canEditBoard();remove.addEventListener("click",()=>{if(!canEditBoard())return;mediumAuthors.splice(index,1);mediumAuthorSelections.splice(index,1);document.querySelector("#medium-author-results").innerHTML="";renderMediumAuthorSelections();if(typeof mpStateChanged==="function")mpStateChanged()});
   row.append(label,remove);selected.append(row);
  });
 }
