@@ -23,7 +23,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
   };
   const wrong=shuffle(allAnimeTitles().filter(title=>title.toLowerCase()!==entry.title.toLowerCase())).slice(0,3);
   const options=shuffle([entry.title,...wrong]);
-  if(typeof mpRoomId!=="undefined"&&mpRoomId){await mpStartSharedTrivia(entry,options);return;}
+  if(typeof mpRoomId!=="undefined"&&mpRoomId){challengeBusy=false;await mpStartSharedTrivia(entry,options);return;}
   answers.innerHTML="";
   options.forEach(title=>{const button=document.createElement("button");button.textContent=title;button.onclick=()=>resolveTriviaAnswer(title,button);answers.appendChild(button)});
   const typeNames={cover:"Cover",character:"Character",location:"Location / scenery",attack:"Attack / battle scene"};
@@ -43,7 +43,7 @@ async function resolveTriviaAnswer(selected,button){
   if(mpTriviaAnswered())return;
   challengeBusy=true;document.querySelectorAll("#challenge-answers button").forEach(b=>b.disabled=true);
   try{await mpSubmitTriviaAnswer(selected)}catch(error){document.querySelector("#challenge-status").textContent="Answer could not be submitted: "+(error.message||error);}
-  finally{challengeBusy=false;}
+  finally{challengeBusy=false;if(mpChallenge&&typeof mpRenderSharedChallenge==="function")mpRenderSharedChallenge(mpChallenge);}
   return;
  }
  if((typeof mpCanAct==="function"&&!mpCanAct()))return;
