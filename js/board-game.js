@@ -67,7 +67,7 @@ function renderPresetEditor(){
  eventsEl.innerHTML="";
  tileEvents.forEach(event=>{
   const label=document.createElement("label");label.className="setup-check";label.style.padding="3px 0";
-  const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.value=event.id;checkbox.dataset.presetEvent="1";
+  const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.value=event.id;checkbox.dataset.presetEvent="1";checkbox.disabled=!canEditBoard();
   const title=document.createElement("span");title.textContent=event.name+(event.implemented?"":" (not implemented yet)");
   label.append(checkbox,title);eventsEl.append(label);
  });
