@@ -28,6 +28,21 @@
   </div>
   <div class="note" style="margin-top:8px">Create a room and share its six-character code. Up to four players can join.</div>
  </section>
+ <section class="setup-panel" id="host-setup">
+  <div class="section-title">Game setup & board editor</div>
+  <label for="round-limit" class="note">Rounds (one round = every player takes one turn)</label>
+  <input id="round-limit" type="number" min="1" max="50" value="5">
+  <div class="section-title" style="margin-top:12px">Allowed tile types</div>
+  <label class="setup-check"><input id="allow-image" type="checkbox" checked> Image question</label>
+  <label class="setup-check"><input id="allow-shop" type="checkbox" checked> Shop</label>
+  <label class="setup-check"><input id="allow-coop" type="checkbox" checked> Co-op challenge</label>
+  <p class="note">Before starting, click a route node except START and GOAL to cycle through enabled tile types. Randomize fills all available nodes with a random enabled type.</p>
+  <button class="secondary" id="randomize-board">Randomly distribute tiles</button>
+  <button class="secondary" id="clear-board" style="margin-top:8px">Clear all tiles</button>
+  <button class="primary" id="setup-start-local" style="margin-top:8px">Start local game</button>
+  <button class="secondary" id="add-round" style="margin-top:8px;display:none">Add one round</button>
+  <div class="status" id="setup-status" style="margin-top:8px">Configure the board before starting.</div>
+ </section>
  <section><div class="section-title">Current turn</div><div class="current"><div class="avatar" id="current-avatar"></div><div><strong id="current-name">Player 1</strong><small id="turn-note">Ready to roll</small></div></div></section>
  <section><div class="section-title">Dice</div><div class="dice-row"><div class="die" id="die">—</div><button class="primary" id="roll">Roll dice</button></div></section>
  <section><div class="section-title">Game status</div><div class="status" id="status" aria-live="polite">Player 1, roll to begin your turn.</div><div id="choices" class="choices" style="margin-top:10px"></div><div style="display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin-top:10px"><label for="challenge-mode" class="note">Test clue type</label><select id="challenge-mode" style="width:100%;padding:10px;border-radius:9px;background:#22283b;color:#f5f5ff;border:1px solid #424a65"><option value="random">Random mix</option><option value="easy">Easy — covers / characters</option><option value="location">Hard — locations / scenery</option><option value="attack">Hard — attacks / battles</option></select><button class="secondary" id="challenge-test">Test selected clue</button></div></section>
