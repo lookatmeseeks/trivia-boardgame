@@ -1,3 +1,6 @@
+let localTriviaAnswered=[];
+let localTriviaIndex=0;
+
 async function startTriviaChallenge(mode=document.querySelector("#challenge-mode")?.value||"random"){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
  overlay.style.display="flex";media.innerHTML='<div class="note">Choosing a clue image…</div>';answers.innerHTML="";msg.textContent="Choosing an image and clue type.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";lastAnimeBatch=[];
@@ -28,13 +31,14 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
    await mpStartSharedTrivia(entry,options);
    return;
   }
+  localTriviaAnswered=players.map(()=>false);localTriviaIndex=0;
   answers.innerHTML="";
   options.forEach(title=>{const button=document.createElement("button");button.textContent=title;button.onclick=()=>resolveTriviaAnswer(title,button);answers.appendChild(button)});
   const typeNames={cover:"Cover",character:"Character",location:"Location / scenery",attack:"Attack / battle scene"};
   const difficultyNames={1:"Easy",2:"Medium",3:"Hard"};
   document.querySelector("#challenge-title").textContent="Which anime is this from?";
   document.querySelector("#challenge-instructions").textContent=(typeNames[entry.type]||"Anime clue")+" clue · "+(difficultyNames[entry.difficulty]||"Unknown difficulty");
-  msg.textContent="Identify the anime from the image.";
+  msg.textContent="Each player gets one answer. Pass the device to the next player when prompted.";
   source.innerHTML="Clue: "+entry.label+". Source: "+(entry.sourceUrl||"Safebooru")+(entry.sourceUrl&&entry.type!=="cover"&&entry.type!=="character"?' · <a href="'+entry.sourceUrl+'" target="_blank" rel="noopener" style="color:#66e3ef">View source post</a>':"");
   challengeBusy=false;
  }catch(error){
@@ -55,11 +59,25 @@ async function resolveTriviaAnswer(selected,button){
   return;
  }
  if((typeof mpCanAct==="function"&&!mpCanAct()))return;
- challengeResolved=true;document.querySelectorAll("#challenge-answers button").forEach(b=>b.disabled=true);
  const msg=document.querySelector("#challenge-status"),next=document.querySelector("#challenge-next");
- if(selected===challengeAnswer){players[current].score+=2;msg.textContent="Correct! "+challengeAnswer+" · +2 points."}
- else{msg.textContent="Incorrect. The intended answer was "+challengeAnswer+". No points awarded."}
- updateUI();next.textContent="Continue turn";next.style.display="block";document.querySelector("#challenge-source").textContent+=" · Answer: "+challengeAnswer;
+ document.querySelectorAll("#challenge-answers button").forEach(b=>b.disabled=true);
+ const answeringPlayer=localTriviaIndex;
+ const isCorrect=selected===challengeAnswer;
+ localTriviaAnswered[answeringPlayer]=true;
+ if(isCorrect){players[answeringPlayer].score+=answeringPlayer===current?2:1;}
+ localTriviaIndex++;
+ updateUI();
+ if(localTriviaIndex<players.length){
+  msg.textContent=players[answeringPlayer].name+(isCorrect?" answered correctly.":" answered incorrectly.")+" Next: "+players[localTriviaIndex].name+".";
+  document.querySelector("#challenge-instructions").textContent="Pass the device to "+players[localTriviaIndex].name+", then let them choose an answer.";
+  document.querySelectorAll("#challenge-answers button").forEach(b=>{b.disabled=false;b.onclick=()=>resolveTriviaAnswer(b.textContent,b)});
+  return;
+ }
+ challengeResolved=true;
+ msg.textContent="All players answered. Correct answer: "+challengeAnswer+". Points awarded: "+players.map((p,i)=>p.name+" "+(localTriviaAnswered[i]&&p.score>=0?"checked":"")).filter((x)=>x.includes("checked")).join(", ")+".";
+ document.querySelector("#challenge-instructions").textContent="Question complete.";
+ next.textContent="Continue turn";next.style.display="block";
+ document.querySelector("#challenge-source").textContent+=" · Answer: "+challengeAnswer;
 }
 document.querySelector("#challenge-test").addEventListener("click",()=>{
  if(typeof mpRoomId!=="undefined"&&mpRoomId&&!mpCanAct()){
@@ -91,12 +109,12 @@ function mpRenderSharedChallenge(challenge){
  const resolved=challenge.status==="resolved";
  (challenge.options||[]).forEach(option=>{const button=document.createElement("button");button.textContent=option;button.disabled=alreadyAnswered||resolved||challengeBusy;button.onclick=()=>resolveTriviaAnswer(option,button);answers.appendChild(button)});
  if(resolved){
-  if(challenge.winnerUserId)msg.textContent=challenge.winnerName+" answered correctly first! +2 points. Answer: "+challenge.correctAnswer;
-  else msg.textContent="Nobody answered correctly. The answer was "+challenge.correctAnswer+".";
+  const correctIds=challenge.correctUserIds||[];
+  msg.textContent="All players answered. "+correctIds.length+" correct. Answer: "+challenge.correctAnswer+". Scores: "+players.map(p=>p.name+" "+p.score).join(", ")+".";
   next.textContent="Continue turn";next.style.display=mpCanAct()?"block":"none";next.disabled=!mpCanAct();
  }else{
   const count=(challenge.answeredUserIds||[]).length;
-  if(alreadyAnswered)msg.textContent="Your answer is locked in. Waiting for another player to answer correctly. ("+count+"/"+players.length+" answered)";
+  if(alreadyAnswered)msg.textContent="Your answer is locked in. Waiting for everyone else. ("+count+"/"+players.length+" answered)";
   else msg.textContent="Choose one answer. You only get one attempt. ("+count+"/"+players.length+" answered)";
   next.style.display="none";
  }
