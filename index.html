@@ -39,7 +39,7 @@
   <label class="setup-check"><input id="allow-shop" type="checkbox" checked> Shop</label>
   <label class="setup-check"><input id="allow-coop" type="checkbox" checked> Co-op challenge</label>
   <label class="note" for="medium-author-search" style="display:block;margin-top:12px">Allowed manga authors/artists for Medium</label>
-  <div style="display:flex;gap:6px;margin-top:6px"><input id="medium-author-search" type="search" placeholder="Search MangaDex creators (e.g. Urasawa)" style="min-width:0;flex:1"><button class="secondary" id="medium-author-search-button" type="button">Search</button></div>
+  <div id="medium-author-search-row" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-top:6px;width:100%"><input id="medium-author-search" type="search" placeholder="Search MangaDex creators (e.g. Urasawa)" aria-label="Search MangaDex creators" style="display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box"><button class="secondary" id="medium-author-search-button" type="button" style="width:auto;white-space:nowrap">Search</button></div>
   <div id="medium-author-status" class="note" aria-live="polite" style="margin-top:6px">Search for a creator, then select the exact MangaDex entry. Leave the selection empty to allow all creators.</div>
   <div id="medium-author-results" style="display:grid;gap:5px;margin-top:6px"></div>
   <div class="note" style="margin-top:10px">Selected creators</div>
