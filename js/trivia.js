@@ -29,7 +29,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
   document.querySelector("#challenge-title").textContent=entry.type==="manga-panel"?"Which manga is this panel from?":"Which anime is this from?";
   document.querySelector("#challenge-instructions").textContent=(typeNames[entry.type]||"Anime clue")+" clue · "+(difficultyNames[entry.difficulty]||"Unknown difficulty");
   msg.textContent="Each player gets one answer. Pass the device to the next player when prompted.";
-  source.innerHTML="Clue: "+entry.label+". Source: "+(entry.sourceUrl||"Safebooru")+(entry.sourceUrl&&entry.type!=="cover"&&entry.type!=="character"?' · <a href="'+entry.sourceUrl+'" target="_blank" rel="noopener" style="color:#66e3ef">View source post</a>':"");
+  source.innerHTML="Clue: "+entry.label+". Source: "+(entry.sourceUrl||"Safebooru")+(entry.sourceUrl?' · <a href="'+entry.sourceUrl+'" target="_blank" rel="noopener" style="color:#66e3ef">View source</a>':"");
   challengeBusy=false;
  }catch(error){
   challengeBusy=false;
@@ -60,8 +60,8 @@ function mpRenderSharedChallenge(challenge){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
  if(!challenge){overlay.style.display="none";return}
  overlay.style.display="flex";
- document.querySelector("#challenge-title").textContent="Which anime is this from?";
- const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art"};
+ document.querySelector("#challenge-title").textContent=challenge.type==="manga-panel"?"Which manga is this panel from?":"Which anime is this from?";
+ const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art","manga-panel":"Manga panel"};
  const difficultyNames={1:"Easy",2:"Medium",3:"Hard"};
  document.querySelector("#challenge-instructions").textContent=(typeNames[challenge.type]||"Anime clue")+" clue · "+(difficultyNames[challenge.difficulty]||"Unknown difficulty");
  if(media.dataset.imageUrl!==challenge.imageUrl){media.dataset.imageUrl=challenge.imageUrl;media.innerHTML="";const img=document.createElement("img");img.alt=challenge.imageLabel||"Anime clue";img.src=challenge.imageUrl;img.onerror=()=>{media.textContent="The clue image could not be loaded."};media.appendChild(img)}
