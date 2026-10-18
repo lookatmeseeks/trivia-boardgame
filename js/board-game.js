@@ -25,7 +25,7 @@ function updateSetupUI(){
  const editable=!mpRoomId||mpIsHost;panel.style.display=editable?"block":"none";
  document.querySelector("#add-round").style.display=mpRoomId?(mpIsHost&&mpRoomStatus==="playing"?"block":"none"):(setupMode?"none":"block");
  document.querySelector("#round-limit").disabled=!canEditBoard();
- ["allow-image","allow-shop","allow-coop","randomize-board","clear-board"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
+ ["allow-image-easy","allow-image-medium","allow-image-hard","allow-shop","allow-coop","randomize-board","clear-board"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
  document.querySelector("#round-limit").value=roundLimit;
  document.querySelector("#setup-status").textContent=setupMode?"Edit the board, choose allowed tile types, then start the game.":"Round "+Math.min(roundsCompleted+1,roundLimit)+" of "+roundLimit+" · "+roundsCompleted+" completed.";
 }
@@ -102,7 +102,7 @@ function finishTurn(){
  remaining=0;moving=false;choicesEl.innerHTML="";
  const p=players[current],landed=node(p.pos);
  const landedType=tileTypes[p.pos];
- if(landedType==="image"&&!challengeResolved){startTriviaChallenge();return}
+ if(typeof landedType==="string"&&landedType.startsWith("image-")&&!challengeResolved){startTriviaChallenge("random");return}
  challengeResolved=false;
  let result=p.name+" finished their move on "+landed.label+".";
  if(landedType==="shop")result+=" Shop tile: shop and item effects will be added in the next implementation phase.";
