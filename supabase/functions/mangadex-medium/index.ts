@@ -130,7 +130,7 @@ async function choosePanel(manga) {
     let checked = 0;
     // MangaDex documents that a failed @Home server can be replaced by requesting a fresh assignment.
     for (let serverAttempt = 0; serverAttempt < 2 && !workingPage; serverAttempt++) {
-      const atHome = await api("/at-home/server/" + chapter.id + (serverAttempt ? "?forcePort443=true" : ""));
+      const atHome = await api("/at-home/server/" + chapter.id);
       if (!atHome.baseUrl || !atHome.chapter || !atHome.chapter.hash) continue;
       const fullPages = Array.isArray(atHome.chapter.data) ? shuffle(atHome.chapter.data) : [];
       const saverPages = Array.isArray(atHome.chapter.dataSaver) ? shuffle(atHome.chapter.dataSaver) : [];
