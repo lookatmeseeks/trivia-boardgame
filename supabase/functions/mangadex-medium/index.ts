@@ -199,10 +199,11 @@ async function choosePanel(manga) {
   }
   return null;
 }
-async function randomPanel(authorNames) {
+async function randomPanel(authorNames, selectedAuthorIds = []) {
   const names = [...new Set((Array.isArray(authorNames) ? authorNames : [])
     .map(name => String(name || "").trim()).filter(Boolean))].slice(0, 30);
-  const authorIds = names.length ? await resolveAuthors(names) : [];
+  const providedIds = [...new Set((Array.isArray(selectedAuthorIds) ? selectedAuthorIds : []).map(id => String(id || "").trim()).filter(id => /^[0-9a-f-]{36}$/i.test(id)))].slice(0, 30);
+  const authorIds = providedIds.length ? providedIds : (names.length ? await resolveAuthors(names) : []);
   const candidates = await mangaCandidates(authorIds);
   if (candidates.length < 4) {
     throw new Error("MangaDex returned fewer than four manga with English titles and available chapters for this author filter. Add more authors or leave the list blank.");
@@ -259,8 +260,19 @@ Deno.serve(async (request) => {
   if (request.method !== "POST") return reply({ error: "Use POST for manga questions." }, 405);
   try {
     const body = await request.json();
+    if (body.action === "search-authors") {
+      const query = String(body.query || "").trim();
+      if (query.length < 2) return reply({ authors: [] });
+      const params = new URLSearchParams({ name: query, limit: "10" });
+      const result = await api("/author?" + params.toString());
+      const authors = (result.data || [])
+        .map(author => ({ id: author.id, name: author.attributes && author.attributes.name }))
+        .filter(author => author.id && typeof author.name === "string" && author.name.trim())
+        .slice(0, 10);
+      return reply({ authors });
+    }
     if (body.action !== "random-panel") return reply({ error: "Unknown action." }, 400);
-    return reply(await randomPanel(body.authors || []));
+    return reply(await randomPanel(body.authors || [], body.authorIds || []));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[mangadex-medium] Request failed", {
