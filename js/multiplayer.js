@@ -1,4 +1,4 @@
-let mpClient=null,mpUserId=null,mpRoomId=null,mpRoomCode="",mpIsHost=false,mpRoomStatus="lobby",mpChannel=null,mpApplyingState=false,mpSaveTimer=null,mpPlayerRows=[];
+let mpClient=null,mpUserId=null,mpRoomId=null,mpRoomCode="",mpIsHost=false,mpRoomStatus="lobby",mpChannel=null,mpApplyingState=false,mpSaveTimer=null,mpPlayerRows=[],mpChallenge=null;
 
 function mpSetStatus(message){const el=document.querySelector("#mp-status");if(el)el.textContent=message}
 function mpSetActions(show){const el=document.querySelector("#mp-room-actions");if(el)el.style.display=show?"grid":"none"}
@@ -22,7 +22,7 @@ async function mpEnsureClient(){
  }
 }
 function mpCurrentSnapshot(){
- return {updatedBy:mpUserId,players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—"};
+ return {updatedBy:mpUserId,players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—",challenge:mpChallenge};
 }
 function mpStateChanged(){
  if(!mpRoomId||mpApplyingState||mpRoomStatus!=="playing")return;
@@ -67,12 +67,14 @@ function mpApplySnapshot(state){
   players=state.players.map(p=>({name:p.name,pos:Number(p.pos)||0,previous:p.previous===null?null:Number(p.previous),score:Number(p.score)||0,userId:p.userId||p.user_id||null}));
   current=Math.max(0,Math.min(players.length-1,Number(state.current)||0));
   remaining=Math.max(0,Number(state.remaining)||0);
-  moving=false;gameOver=!!state.gameOver;challengeResolved=false;
+  moving=false;gameOver=!!state.gameOver;challengeResolved=state.challenge?.status==="resolved";mpChallenge=state.challenge||null;
   document.querySelector("#die").textContent=state.die||"—";
   choicesEl.innerHTML="";
   renderBoard();updateUI();
-  setStatus(gameOver?"Game finished.":(mpCanAct()?"Your turn. Roll or continue your move.":players[current].name+"'s turn. Waiting for them to move."));
-  document.querySelector("#roll").disabled=!mpCanAct()||remaining>0||moving||gameOver;
+  setStatus(mpChallenge?"Trivia challenge in progress.":(gameOver?"Game finished.":(mpCanAct()?"Your turn. Roll or continue your move.":players[current].name+"'s turn. Waiting for them to move.")));
+  if(mpChallenge&&typeof mpRenderSharedChallenge==="function")mpRenderSharedChallenge(mpChallenge);
+  else if(!mpChallenge){document.querySelector("#challenge-overlay").style.display="none";}
+  document.querySelector("#roll").disabled=!mpCanAct()||remaining>0||moving||gameOver||!!mpChallenge;
   document.querySelector("#reset").disabled=!mpIsHost;
  }finally{mpApplyingState=false}
 }
@@ -122,7 +124,7 @@ async function mpStartGame(){
   await mpRefreshPlayers();
   if(mpPlayerRows.length<2){mpSetStatus("At least two players must join before starting.");return}
   players=mpPlayerRows.map(p=>({name:p.player_name,pos:0,previous:null,score:0,userId:p.user_id}));
-  current=0;remaining=0;moving=false;gameOver=false;challengeResolved=false;
+  current=0;remaining=0;moving=false;gameOver=false;challengeResolved=false;mpChallenge=null;
   document.querySelector("#die").textContent="—";
   renderBoard();startTurn();mpRoomStatus="playing";
   const {error}=await mpClient.rpc("save_game_state",{p_code:mpRoomCode,p_state:mpCurrentSnapshot(),p_status:"playing"});
@@ -143,3 +145,24 @@ document.querySelector("#mp-join").addEventListener("click",mpJoinRoom);
 document.querySelector("#mp-start").addEventListener("click",mpStartGame);
 document.querySelector("#mp-leave").addEventListener("click",mpLeaveRoom);
 document.querySelector("#reset").addEventListener("click",()=>{if(mpRoomId&&!mpIsHost)return;});
+
+async function mpStartSharedTrivia(entry,options){
+ if(!mpRoomId)return false;
+ if(!mpCanAct())throw new Error("Only the active player can start this question.");
+ const question={imageUrl:entry.url,imageLabel:entry.label,type:entry.type,difficulty:entry.difficulty,sourceUrl:entry.sourceUrl||"",options};
+ const base=mpCurrentSnapshot();
+ const {data,error}=await mpClient.rpc("start_shared_trivia",{p_code:mpRoomCode,p_state:base,p_question:question,p_answer:entry.title});
+ if(error)throw error;
+ mpApplySnapshot(data);
+ return true;
+}
+async function mpSubmitTriviaAnswer(answer){
+ if(!mpRoomId||!mpChallenge)return null;
+ const {data,error}=await mpClient.rpc("submit_trivia_answer",{p_code:mpRoomCode,p_answer:answer});
+ if(error)throw error;
+ mpApplySnapshot(data.state||data);
+ return data;
+}
+function mpTriviaAnswered(){
+ return !!mpChallenge&&Array.isArray(mpChallenge.answeredUserIds)&&mpChallenge.answeredUserIds.includes(mpUserId);
+}
