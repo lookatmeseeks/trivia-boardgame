@@ -41,7 +41,12 @@ button{font:inherit;font-weight:750;border:0;border-radius:10px;padding:11px 14p
 .setup-check{display:flex;align-items:center;gap:8px;padding:6px 0;color:#e8eaf5}
 .setup-check input{accent-color:var(--pink);width:16px;height:16px}
 #board .tile.editor-tile{cursor:pointer;stroke-width:3}
-#board .tile.image-space{fill:#293f55;stroke:#66e3ef}
+#board .tile.image-easy-space{fill:#244c39;stroke:#69df9b}
+#board .tile.image-medium-space{fill:#5a4a21;stroke:#ffd166}
+#board .tile.image-hard-space{fill:#5b2e38;stroke:#ff657a}
+.difficulty-dot,.legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-left:5px;vertical-align:middle}
+.easy-dot{background:#69df9b}.medium-dot{background:#ffd166}.hard-dot{background:#ff657a}
+.board-legend{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 #board .tile.shop-space{fill:#493c24;stroke:#ffd166}
 #board .tile.coop-space{fill:#3c2e50;stroke:#c4a0ff}
 #board .tile-label{font-size:10px}
