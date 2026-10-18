@@ -87,6 +87,7 @@ BEGIN
     WHERE room_id=v_room.id AND user_id=v_user AND v_is_correct;
 
   v_state := COALESCE(v_room.state,'{}'::jsonb);
+  v_state := jsonb_set(v_state,'{updatedBy}',to_jsonb(v_user::text),true);
   v_challenge := COALESCE(v_state->'challenge','{}'::jsonb) || jsonb_build_object(
     'answeredUserIds',to_jsonb(v_answered),'correctUserIds',to_jsonb(v_correct),
     'status',CASE WHEN v_resolved THEN 'resolved' ELSE 'open' END,
