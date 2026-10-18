@@ -81,6 +81,6 @@ function mpRenderSharedChallenge(challenge){
   else msg.textContent="Choose one answer. The first correct answer ends the question. ("+count+"/"+players.length+" answered)";
   next.style.display="none";
  }
- source.textContent=challenge.imageLabel||"Anime clue";
+ source.textContent=(challenge.imageLabel||"Anime clue")+(challenge.sourceCredit?" · Scanlation group: "+challenge.sourceCredit:"");
  if(challenge.sourceUrl){const link=document.createElement("a");link.href=challenge.sourceUrl;link.target="_blank";link.rel="noopener";link.textContent=" View source";link.style.color="#66e3ef";source.appendChild(link)}
 }
