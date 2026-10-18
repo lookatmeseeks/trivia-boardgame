@@ -22,7 +22,9 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
     next.textContent="Try again";next.style.display="block";challengeBusy=false;
    };
   }
-  const wrong=shuffle(allAnimeTitles().filter(title=>title.toLowerCase()!==entry.title.toLowerCase())).slice(0,3);
+  const normalizeAnswer=value=>String(value||"").toLocaleLowerCase().replace(/[^a-z0-9]/g,"");
+  const normalizedCorrect=normalizeAnswer(entry.title);
+  const wrong=shuffle(allAnimeTitles().filter(title=>normalizeAnswer(title)!==normalizedCorrect)).slice(0,3);
   const options=Array.isArray(entry.options)&&entry.options.length===4?entry.options:shuffle([entry.title,...wrong]);
   if(typeof mpRoomId==="undefined"||!mpRoomId)throw new Error("Create or join an online room before starting a question.");
   challengeBusy=false;
