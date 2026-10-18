@@ -33,7 +33,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
   challengeBusy=false;
   media.innerHTML='<div class="note">The question could not be started.</div>';
   answers.innerHTML="";
-  msg.textContent="Question setup failed: "+(error.message||"Network request failed")+". Check the multiplayer connection / Supabase setup, then try again.";
+  msg.textContent="Question setup failed: "+(error.message||"Network request failed")+". If this is an image-source error, try again in a moment; if it mentions the room or answer submission, check the multiplayer connection.";
   next.textContent="Try again";next.style.display="block";
  }
 }
