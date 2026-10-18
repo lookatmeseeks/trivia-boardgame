@@ -25,7 +25,12 @@ async function api(path) {
   });
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    throw new Error("MangaDex API returned HTTP " + response.status + (detail ? ": " + detail.slice(0, 180) : ""));
+    console.error("[mangadex-medium] MangaDex API request failed", {
+      path,
+      status: response.status,
+      detail: detail.slice(0, 1000)
+    });
+    throw new Error("MangaDex API returned HTTP " + response.status + (detail ? ": " + detail.slice(0, 300) : ""));
   }
   return response.json();
 }
@@ -126,19 +131,43 @@ async function randomPanel(authorNames) {
   const pool = shuffle(candidates);
   const answers = shuffle(pool.map(m => m.title).filter((title, index, all) => all.findIndex(x => normalized(x) === normalized(title)) === index));
   if (answers.length < 4) throw new Error("MangaDex did not return four distinct English manga titles.");
+  let lastCandidateError = "";
   for (const manga of pool.slice(0, 12)) {
     try {
       const selected = await choosePanel(manga);
-      if (!selected) continue;
+      if (!selected) {
+        console.warn("[mangadex-medium] No usable chapter/page found for candidate", {
+          mangaId: manga.id,
+          title: manga.title
+        });
+        continue;
+      }
       const wrong = answers.filter(title => normalized(title) !== normalized(selected.entry.title)).slice(0, 3);
-      if (wrong.length < 3) continue;
+      if (wrong.length < 3) {
+        console.warn("[mangadex-medium] Not enough distinct wrong answers", {
+          mangaId: manga.id,
+          title: manga.title,
+          answerCount: wrong.length
+        });
+        continue;
+      }
+      console.log("[mangadex-medium] Successfully selected manga panel", {
+        mangaId: manga.id,
+        title: manga.title
+      });
       return { ...selected, options: shuffle([selected.entry.title, ...wrong]) };
     } catch (error) {
-      // Skip titles with no readable chapter or temporarily unavailable page data.
-      continue;
+      // Keep trying other candidates, but log the reason so failures can be diagnosed.
+      lastCandidateError = error instanceof Error ? error.message : String(error);
+      console.error("[mangadex-medium] Candidate failed", {
+        mangaId: manga.id,
+        title: manga.title,
+        error: lastCandidateError
+      });
     }
   }
-  throw new Error("Could not find a usable manga page right now. Try again, or broaden the author filter.");
+  throw new Error("Could not find a usable manga page after trying " + Math.min(pool.length, 12) +
+    " candidates." + (lastCandidateError ? " Last candidate error: " + lastCandidateError : " No candidate returned usable chapter/page data."));
 }
 
 Deno.serve(async (request) => {
@@ -154,6 +183,12 @@ Deno.serve(async (request) => {
     if (body.action !== "random-panel") return reply({ error: "Unknown action." }, 400);
     return reply(await randomPanel(body.authors || []));
   } catch (error) {
-    return reply({ error: error instanceof Error ? error.message : "Unexpected MangaDex error." }, 502);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[mangadex-medium] Request failed", {
+      action: request.method === "POST" ? "POST" : request.method,
+      message,
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    return reply({ error: message || "Unexpected MangaDex error." }, 502);
   }
 });
