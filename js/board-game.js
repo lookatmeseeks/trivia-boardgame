@@ -16,7 +16,7 @@ const adjacency={};nodes.forEach(n=>adjacency[n.id]=[]);edges.forEach(([a,b])=>{
 const colors=["#ff5da8","#66e3ef","#ffd166","#a78bfa"];
 let players=[],current=0,remaining=0,moving=false,turnStarted=false,gameOver=false,challengeResolved=false,challengeBusy=false,challengeAnswer="";
 const svg=document.querySelector("#board"),statusEl=document.querySelector("#status"),choicesEl=document.querySelector("#choices");
-let tileTypes={},roundLimit=5,roundsCompleted=0,setupMode=true,mediumAuthors=[];
+let tileTypes={},roundLimit=5,roundsCompleted=0,setupMode=true,mediumAuthors=[],mediumAuthorSelections=[];
 const tileLabels={"image-easy":"EASY","image-medium":"MEDIUM","image-hard":"HARD",shop:"SHOP",coop:"CO-OP"};
 function allowedTileTypes(){return [document.querySelector("#allow-image-easy")?.checked&&"image-easy",document.querySelector("#allow-image-medium")?.checked&&"image-medium",document.querySelector("#allow-image-hard")?.checked&&"image-hard",document.querySelector("#allow-shop")?.checked&&"shop",document.querySelector("#allow-coop")?.checked&&"coop"].filter(Boolean)}
 function canEditBoard(){return setupMode&&(!mpRoomId||mpIsHost)&&(!mpRoomId||mpRoomStatus==="lobby")}
@@ -27,7 +27,7 @@ function updateSetupUI(){
  document.querySelector("#round-limit").disabled=!canEditBoard();
  ["allow-image-easy","allow-image-medium","allow-image-hard","allow-shop","allow-coop","randomize-board","clear-board"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
  document.querySelector("#round-limit").value=roundLimit;
- const authorInput=document.querySelector("#medium-authors");if(authorInput){authorInput.disabled=!canEditBoard();if(document.activeElement!==authorInput)authorInput.value=mediumAuthors.join("\n");}
+ const authorInput=document.querySelector("#medium-author-search"),searchButton=document.querySelector("#medium-author-search-button");if(authorInput)authorInput.disabled=!canEditBoard();if(searchButton)searchButton.disabled=!canEditBoard();renderMediumAuthorSelections();
  document.querySelector("#setup-status").textContent=setupMode?"Edit the board, choose allowed tile types, then start the game.":"Round "+Math.min(roundsCompleted+1,roundLimit)+" of "+roundLimit+" · "+roundsCompleted+" completed.";
 }
 function handleBoardNodeClick(id){if(!canEditBoard()||id===0||id===9)return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Enable at least one tile type first.";return}const currentType=tileTypes[id],index=allowed.indexOf(currentType);if(index<0)tileTypes[id]=allowed[0];else if(index===allowed.length-1)delete tileTypes[id];else tileTypes[id]=allowed[index+1];renderBoard()}
@@ -123,6 +123,38 @@ resetGame();
 document.querySelector("#randomize-board").addEventListener("click",randomizeBoard);
 document.querySelector("#clear-board").addEventListener("click",clearBoardTiles);
 function getMediumAuthors(){return mediumAuthors.slice()}
-document.querySelector("#medium-authors").addEventListener("input",event=>{mediumAuthors=event.target.value.split(/\r?\n/).map(name=>name.trim()).filter(Boolean).slice(0,30)});
+function getMediumAuthorIds(){return mediumAuthorSelections.map(author=>author.id).filter(Boolean)}
+function renderMediumAuthorSelections(){
+ const selected=document.querySelector("#medium-author-selected");if(!selected)return;
+ selected.innerHTML="";
+ if(!mediumAuthors.length){selected.innerHTML='<span class="note">All creators allowed.</span>';return}
+ mediumAuthors.forEach((name,index)=>{
+  const row=document.createElement("div");row.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid #424a65;border-radius:8px;background:#171c2b";
+  const label=document.createElement("span");label.textContent=name;label.style.cssText="overflow-wrap:anywhere";
+  const remove=document.createElement("button");remove.className="secondary";remove.type="button";remove.textContent="Remove";remove.disabled=!canEditBoard();remove.addEventListener("click",()=>{if(!canEditBoard())return;mediumAuthors.splice(index,1);mediumAuthorSelections=mediumAuthorSelections.filter(a=>a.name!==name);renderMediumAuthorSelections();if(typeof mpStateChanged==="function")mpStateChanged()});
+  row.append(label,remove);selected.append(row);
+ });
+}
+async function searchMediumAuthors(){
+ const query=document.querySelector("#medium-author-search").value.trim(),status=document.querySelector("#medium-author-status"),results=document.querySelector("#medium-author-results");
+ if(!canEditBoard())return;
+ if(!query){status.textContent="Enter part of a creator name first.";results.innerHTML="";return}
+ status.textContent="Searching MangaDex…";results.innerHTML="";
+ try{
+  const authors=await searchMangaDexAuthors(query);
+  if(!authors.length){status.textContent="No MangaDex creators found. Try a shorter or alternate spelling.";return}
+  status.textContent="Select the exact creator entry you want to allow.";
+  authors.forEach(author=>{
+   const row=document.createElement("div");row.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid #424a65;border-radius:8px;background:#171c2b";
+   const label=document.createElement("span");label.textContent=author.name;label.style.cssText="overflow-wrap:anywhere";
+   const add=document.createElement("button");add.className="secondary";add.type="button";add.textContent=mediumAuthorSelections.some(a=>a.id===author.id)?"Added":"Add";add.disabled=!canEditBoard()||mediumAuthorSelections.some(a=>a.id===author.id);
+   add.addEventListener("click",()=>{if(!canEditBoard()||mediumAuthorSelections.some(a=>a.id===author.id))return;if(mediumAuthorSelections.length>=30){status.textContent="You can select up to 30 creators.";return}mediumAuthorSelections.push({id:author.id,name:author.name});mediumAuthors=mediumAuthorSelections.map(a=>a.name);renderMediumAuthorSelections();add.textContent="Added";add.disabled=true;if(typeof mpStateChanged==="function")mpStateChanged()});
+   row.append(label,add);results.append(row);
+  });
+ }catch(error){status.textContent="MangaDex creator search failed: "+(error.message||error)}
+}
+document.querySelector("#medium-author-search-button").addEventListener("click",searchMediumAuthors);
+document.querySelector("#medium-author-search").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();searchMediumAuthors()}});
+
 document.querySelector("#add-round").addEventListener("click",()=>{if(mpRoomId&&!mpIsHost)return;roundLimit=Math.min(50,roundLimit+1);gameOver=false;updateSetupUI();updateUI();setStatus("The host added a round. "+roundLimit+" rounds are now available.");if(typeof mpStateChanged==="function")mpStateChanged()});
 ["allow-image-easy","allow-image-medium","allow-image-hard","allow-shop","allow-coop"].forEach(id=>document.querySelector("#"+id).addEventListener("change",()=>{if(!canEditBoard())return;const allowed=allowedTileTypes();Object.keys(tileTypes).forEach(key=>{if(!allowed.includes(tileTypes[key]))delete tileTypes[key]});renderBoard()}));
