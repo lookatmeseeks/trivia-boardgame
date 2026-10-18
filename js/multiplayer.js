@@ -68,6 +68,8 @@ function mpApplySnapshot(state){
   remaining=Math.max(0,Number(state.remaining)||0);
   moving=false;gameOver=!!state.gameOver;challengeResolved=state.challenge?.status==="resolved";mpChallenge=state.challenge||null;
   if(state.tileTypes&&typeof state.tileTypes==="object")tileTypes=state.tileTypes;
+  if(Array.isArray(state.tilePresets)){tilePresets=state.tilePresets.filter(p=>p&&typeof p.id==="string"&&typeof p.name==="string"&&typeof p.color==="string"&&Array.isArray(p.events)).map(p=>({id:p.id,name:p.name,color:p.color,events:p.events.filter(id=>typeof id==="string")}));}
+  if(Number.isFinite(Number(state.presetSequence))&&Number(state.presetSequence)>0)presetSequence=Number(state.presetSequence);
   if(Array.isArray(state.mediumAuthorSelections)){mediumAuthorSelections=state.mediumAuthorSelections.filter(a=>a&&typeof a.name==="string").map(a=>({id:typeof a.id==="string"?a.id:"",name:a.name}));mediumAuthors=mediumAuthorSelections.map(a=>a.name)}else if(Array.isArray(state.mediumAuthors)){mediumAuthors=state.mediumAuthors.filter(x=>typeof x==="string");mediumAuthorSelections=mediumAuthors.map(name=>({id:"",name}))}renderMediumAuthorSelections();
   if(Number.isFinite(Number(state.roundLimit))&&Number(state.roundLimit)>0)roundLimit=Number(state.roundLimit);
   if(Number.isFinite(Number(state.roundsCompleted)))roundsCompleted=Number(state.roundsCompleted);
