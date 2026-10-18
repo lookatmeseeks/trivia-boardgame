@@ -15,6 +15,19 @@
  <svg id="board" viewBox="0 0 900 600" role="img" aria-label="Board with branching paths and loops"></svg>
 </section>
 <aside class="side">
+ <section class="multiplayer-panel">
+  <div class="section-title">Online multiplayer</div>
+  <label class="note" for="mp-name">Your player name</label>
+  <input id="mp-name" maxlength="24" value="Player 1" autocomplete="nickname">
+  <button class="primary" id="mp-create" style="width:100%;margin-top:8px">Create room</button>
+  <div class="mp-join-row"><input id="mp-code" maxlength="6" placeholder="Room code" aria-label="Room code"><button class="secondary" id="mp-join">Join</button></div>
+  <div class="status" id="mp-status" aria-live="polite">Not connected to a room.</div>
+  <div id="mp-room-actions" style="display:none;gap:8px;margin-top:8px">
+   <button class="primary" id="mp-start">Start game</button>
+   <button class="secondary" id="mp-leave">Leave room</button>
+  </div>
+  <div class="note" style="margin-top:8px">Create a room and share its six-character code. Up to four players can join.</div>
+ </section>
  <section><div class="section-title">Current turn</div><div class="current"><div class="avatar" id="current-avatar"></div><div><strong id="current-name">Player 1</strong><small id="turn-note">Ready to roll</small></div></div></section>
  <section><div class="section-title">Dice</div><div class="dice-row"><div class="die" id="die">—</div><button class="primary" id="roll">Roll dice</button></div></section>
  <section><div class="section-title">Game status</div><div class="status" id="status" aria-live="polite">Player 1, roll to begin your turn.</div><div id="choices" class="choices" style="margin-top:10px"></div><div style="display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin-top:10px"><label for="challenge-mode" class="note">Test clue type</label><select id="challenge-mode" style="width:100%;padding:10px;border-radius:9px;background:#22283b;color:#f5f5ff;border:1px solid #424a65"><option value="random">Random mix</option><option value="easy">Easy — covers / characters</option><option value="location">Hard — locations / scenery</option><option value="attack">Hard — attacks / battles</option></select><button class="secondary" id="challenge-test">Test selected clue</button></div></section>
@@ -33,7 +46,10 @@
   <button class="secondary" id="challenge-next" style="margin-top:12px;display:none">Search another image</button>
  </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-config.js"></script>
 <script src="js/anime-content.js"></script>
+<script src="js/multiplayer.js"></script>
 <script src="js/trivia.js"></script>
 <script src="js/board-game.js"></script>
 </body>
