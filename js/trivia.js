@@ -8,7 +8,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
   }else if(mode==="medium"||mode==="manga-panel"){
    entry=await fetchRandomMangaPanel(typeof getMediumAuthors==="function"?getMediumAuthors():[],typeof getMediumAuthorIds==="function"?getMediumAuthorIds():[]);
   }else{
-   throw new Error("Only Easy image questions are implemented so far. Medium and Hard are coming in later stages.");
+   throw new Error("This event does not have a question provider implemented yet.");
   }
   challengeAnswer=entry.title;
   const img=document.createElement("img");img.alt=entry.label;img.src=entry.url;
