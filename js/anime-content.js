@@ -82,3 +82,18 @@ async function fetchRandomEasyImage(){
  if(kind==="cover")return fetchRandomKitsuAnime();
  return fetchRandomSafebooruEasyImage(kind);
 }
+
+
+async function fetchRandomMangaPanel(authorNames=[]){
+ if(typeof mpClient==="undefined"||!mpClient)throw new Error("Connect to an online room before requesting a manga panel.");
+ const {data,error}=await mpClient.functions.invoke(
+  (window.ANIME_PARTY_SUPABASE&&window.ANIME_PARTY_SUPABASE.mangaFunction)||"mangadex-medium",
+  {body:{action:"random-panel",authors:Array.isArray(authorNames)?authorNames:[]}}
+ );
+ if(error)throw new Error("Manga source request failed: "+(error.message||error));
+ if(!data||data.error)throw new Error(data&&data.error?data.error:"Manga source returned an empty response.");
+ if(!data.entry||!data.entry.url||!data.entry.title||!Array.isArray(data.options)||data.options.length!==4){
+  throw new Error("Manga source returned incomplete question data.");
+ }
+ return {...data.entry,options:data.options};
+}
