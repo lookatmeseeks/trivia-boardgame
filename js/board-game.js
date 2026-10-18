@@ -61,7 +61,17 @@ function renderTokens(){
  }
 }
 function updateUI(){
- const p=players[current];document.querySelector("#current-name").textContent=p.name;document.querySelector("#current-avatar").style.background=colors[current];document.querySelector("#turn-note").textContent=remaining>0?`${remaining} step${remaining===1?"":"s"} left`:"Ready to roll";
+ const p=players[current];
+ if(!p){
+  document.querySelector("#current-name").textContent="Not in a game";
+  document.querySelector("#current-avatar").style.background="transparent";
+  document.querySelector("#turn-note").textContent="Create or join a room";
+  document.querySelector("#players").innerHTML="";
+  document.querySelector("#roll").disabled=true;
+  renderTokens();
+  return;
+ }
+ document.querySelector("#current-name").textContent=p.name;document.querySelector("#current-avatar").style.background=colors[current];document.querySelector("#turn-note").textContent=remaining>0?`${remaining} step${remaining===1?"":"s"} left`:"Ready to roll";
  document.querySelector("#roll").disabled=remaining>0||moving;
  document.querySelector("#players").innerHTML=players.map((p,i)=>`<div class="player-row"><span class="avatar" style="background:${colors[i]}"></span><span class="name">${p.name}${i===current?" · turn":""}<br><small>Tile ${node(p.pos).label}</small></span><strong>${p.score} pts</strong></div>`).join("");
  renderTokens();
