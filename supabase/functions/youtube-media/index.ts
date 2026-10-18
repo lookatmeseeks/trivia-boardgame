@@ -64,6 +64,7 @@ async function youtubeSearch(query, eventType, maxResults = 8) {
     title: String(item.snippet.title),
     channelTitle: String(item.snippet.channelTitle || ""),
     publishedAt: String(item.snippet.publishedAt || ""),
+    description: String(item.snippet.description || ""),
     thumbnail: String(item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || "")
   }));
   cache.set(cacheKey, { at: Date.now(), videos });
@@ -86,8 +87,11 @@ Deno.serve(async request => {
     if (action === "random") {
       const anime = animeTitles[Math.floor(Math.random() * animeTitles.length)];
       const videos = await youtubeSearch(anime, eventType, 10);
-      if (!videos.length) return reply({ error: "YouTube did not return an embeddable video for this query. Try again or add an approved video." }, 404);
-      const video = shuffle(videos)[0];
+      const normalize = value => String(value || "").normalize("NFKC").toLocaleLowerCase().replace(/[^a-z0-9]/g, "");
+      const wanted = normalize(anime);
+      const matching = videos.filter(candidate => normalize(candidate.title + " " + candidate.description).includes(wanted));
+      if (!matching.length) return reply({ error: "YouTube did not return an embeddable result whose title or description confirms the selected anime. Try again or add a host-approved video." }, 404);
+      const video = shuffle(matching)[0];
       return reply({ video: { ...video, answer: anime, startSeconds: 0 } });
     }
     return reply({ error: "Unknown action. Use search or random." }, 400);
