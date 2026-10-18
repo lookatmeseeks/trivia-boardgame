@@ -3,15 +3,10 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
  overlay.style.display="flex";media.innerHTML='<div class="note">Choosing a clue image…</div>';answers.innerHTML="";msg.textContent="Choosing an image and clue type.";source.textContent="";next.style.display="none";next.textContent="Search another image";challengeBusy=true;challengeResolved=false;challengeAnswer="";lastAnimeBatch=[];
  let entry;
  try{
-  // Explicit tests never silently fall back to easy images: this lets the user
-  // see whether the selected scene category is actually working.
-  if(mode==="easy"){
-   entry=await fetchRandomKitsuAnime();
-  }else if(mode==="location"||mode==="attack"){
-   entry=await findSceneImage(mode);
+  if(mode==="easy"||mode==="random"){
+   entry=await fetchRandomEasyImage();
   }else{
-   try{entry=Math.random()<0.5?await findSceneImage("random"):await fetchRandomKitsuAnime()}
-   catch(sceneError){entry=await fetchRandomKitsuAnime();}
+   throw new Error("Only Easy image questions are implemented so far. Medium and Hard are coming in later stages.");
   }
   challengeAnswer=entry.title;
   const img=document.createElement("img");img.alt=entry.label;img.src=entry.url;
@@ -27,7 +22,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
   challengeBusy=false;
   await mpStartSharedTrivia(entry,options);
   return;
-  const typeNames={cover:"Cover",character:"Character",location:"Location / scenery",attack:"Attack / battle scene"};
+  const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art"};
   const difficultyNames={1:"Easy",2:"Medium",3:"Hard"};
   document.querySelector("#challenge-title").textContent="Which anime is this from?";
   document.querySelector("#challenge-instructions").textContent=(typeNames[entry.type]||"Anime clue")+" clue · "+(difficultyNames[entry.difficulty]||"Unknown difficulty");
@@ -64,7 +59,7 @@ function mpRenderSharedChallenge(challenge){
  if(!challenge){overlay.style.display="none";return}
  overlay.style.display="flex";
  document.querySelector("#challenge-title").textContent="Which anime is this from?";
- const typeNames={cover:"Cover",character:"Character",location:"Location / scenery",attack:"Attack / battle scene"};
+ const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art"};
  const difficultyNames={1:"Easy",2:"Medium",3:"Hard"};
  document.querySelector("#challenge-instructions").textContent=(typeNames[challenge.type]||"Anime clue")+" clue · "+(difficultyNames[challenge.difficulty]||"Unknown difficulty");
  if(media.dataset.imageUrl!==challenge.imageUrl){media.dataset.imageUrl=challenge.imageUrl;media.innerHTML="";const img=document.createElement("img");img.alt=challenge.imageLabel||"Anime clue";img.src=challenge.imageUrl;img.onerror=()=>{media.textContent="The clue image could not be loaded."};media.appendChild(img)}
