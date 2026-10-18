@@ -214,7 +214,7 @@ const sceneSearchTitles=[
  {title:"Made in Abyss",tag:"made_in_abyss",type:"location",tagHint:"scenery"}
 ];
 async function findSceneImage(mode="random"){
- const candidatePool=[...sceneSearchTitles,...customSceneCandidates()];
+ const candidatePool=sceneSearchTitles;
  const candidates=mode==="location"?candidatePool.filter(x=>x.type==="location"):mode==="attack"?candidatePool.filter(x=>x.type==="attack"):candidatePool;
  const candidate=candidates[Math.floor(Math.random()*candidates.length)];
  const tags=encodeURIComponent(candidate.tag+" "+candidate.tagHint+" rating:g");
