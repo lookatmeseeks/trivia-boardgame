@@ -89,6 +89,27 @@ async function mangaCandidates(authorIds) {
   }
   return [...candidates.values()];
 }
+async function imageIsAvailable(url) {
+  try {
+    const response = await fetch(url, {
+      method: "HEAD",
+      headers: { "User-Agent": "AnimeParty/1.0 (manga trivia game)" }
+    });
+    if (response.ok) return true;
+    console.warn("[mangadex-medium] Manga page URL is unavailable", {
+      status: response.status,
+      url
+    });
+    return false;
+  } catch (error) {
+    console.warn("[mangadex-medium] Could not verify manga page URL", {
+      url,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    // A network error during the optional check should not discard a potentially valid page.
+    return true;
+  }
+}
 async function choosePanel(manga) {
   const chapterParams = new URLSearchParams();
   chapterParams.set("limit", "100");
@@ -100,25 +121,56 @@ async function choosePanel(manga) {
   const chapterResult = await api("/manga/" + manga.id + "/feed?" + chapterParams.toString());
   const chapters = (chapterResult.data || []).filter(ch => ch.id && ch.attributes && ch.attributes.externalUrl == null);
   if (!chapters.length) return null;
-  const chapter = shuffle(chapters)[0];
-  const atHome = await api("/at-home/server/" + chapter.id);
-  const pageNames = atHome.chapter && atHome.chapter.data;
-  if (!atHome.baseUrl || !atHome.chapter || !atHome.chapter.hash || !Array.isArray(pageNames) || !pageNames.length) return null;
-  const filename = shuffle(pageNames)[0];
-  const groupIds = (chapter.relationships || []).filter(rel => rel.type === "scanlation_group").map(rel => rel.id);
-  const groups = (chapterResult.included || []).filter(item => item.type === "scanlation_group" && groupIds.includes(item.id));
-  const sourceCredit = groups.map(group => group.attributes && group.attributes.name).filter(Boolean).join(", ");
-  return {
-    entry: {
-      title: manga.title,
-      url: atHome.baseUrl + "/data/" + atHome.chapter.hash + "/" + filename,
-      type: "manga-panel",
-      difficulty: 2,
-      label: "Manga panel",
-      sourceUrl: "https://mangadex.org/chapter/" + chapter.id,
-      sourceCredit
+  for (const chapter of shuffle(chapters).slice(0, 8)) {
+    const atHome = await api("/at-home/server/" + chapter.id);
+    if (!atHome.baseUrl || !atHome.chapter || !atHome.chapter.hash) continue;
+    const fullPages = Array.isArray(atHome.chapter.data) ? shuffle(atHome.chapter.data) : [];
+    const saverPages = Array.isArray(atHome.chapter.dataSaver) ? shuffle(atHome.chapter.dataSaver) : [];
+    const candidates = [];
+    for (const filename of fullPages.slice(0, 4)) {
+      candidates.push({
+        url: atHome.baseUrl + "/data/" + atHome.chapter.hash + "/" + filename,
+        filename
+      });
     }
-  };
+    for (const filename of saverPages.slice(0, 4)) {
+      candidates.push({
+        url: atHome.baseUrl + "/data-saver/" + atHome.chapter.hash + "/" + filename,
+        filename
+      });
+    }
+    let workingPage = null;
+    for (const candidate of candidates) {
+      if (await imageIsAvailable(candidate.url)) {
+        workingPage = candidate;
+        break;
+      }
+    }
+    if (!workingPage) {
+      console.warn("[mangadex-medium] All sampled pages were unavailable for chapter", {
+        mangaId: manga.id,
+        title: manga.title,
+        chapterId: chapter.id,
+        checked: candidates.length
+      });
+      continue;
+    }
+    const groupIds = (chapter.relationships || []).filter(rel => rel.type === "scanlation_group").map(rel => rel.id);
+    const groups = (chapterResult.included || []).filter(item => item.type === "scanlation_group" && groupIds.includes(item.id));
+    const sourceCredit = groups.map(group => group.attributes && group.attributes.name).filter(Boolean).join(", ");
+    return {
+      entry: {
+        title: manga.title,
+        url: workingPage.url,
+        type: "manga-panel",
+        difficulty: 2,
+        label: "Manga panel",
+        sourceUrl: "https://mangadex.org/chapter/" + chapter.id,
+        sourceCredit
+      }
+    };
+  }
+  return null;
 }
 async function randomPanel(authorNames) {
   const names = [...new Set((Array.isArray(authorNames) ? authorNames : [])
