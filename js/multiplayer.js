@@ -22,7 +22,7 @@ async function mpEnsureClient(){
  }
 }
 function mpCurrentSnapshot(){
- return {updatedBy:mpUserId,players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—",challenge:mpChallenge};
+ return {updatedBy:mpUserId,players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—",challenge:mpChallenge,tileTypes,roundLimit,roundsCompleted};
 }
 function mpStateChanged(){
  if(!mpRoomId||mpApplyingState||mpRoomStatus!=="playing")return;
@@ -68,9 +68,13 @@ function mpApplySnapshot(state){
   current=Math.max(0,Math.min(players.length-1,Number(state.current)||0));
   remaining=Math.max(0,Number(state.remaining)||0);
   moving=false;gameOver=!!state.gameOver;challengeResolved=state.challenge?.status==="resolved";mpChallenge=state.challenge||null;
+  if(state.tileTypes&&typeof state.tileTypes==="object")tileTypes=state.tileTypes;
+  if(Number.isFinite(Number(state.roundLimit))&&Number(state.roundLimit)>0)roundLimit=Number(state.roundLimit);
+  if(Number.isFinite(Number(state.roundsCompleted)))roundsCompleted=Number(state.roundsCompleted);
+  setupMode=false;
   document.querySelector("#die").textContent=state.die||"—";
   choicesEl.innerHTML="";
-  renderBoard();updateUI();
+  renderBoard();updateUI();updateSetupUI();
   setStatus(mpChallenge?"Trivia challenge in progress.":(gameOver?"Game finished.":(mpCanAct()?"Your turn. Roll or continue your move.":players[current].name+"'s turn. Waiting for them to move.")));
   if(mpChallenge&&typeof mpRenderSharedChallenge==="function")mpRenderSharedChallenge(mpChallenge);
   else if(!mpChallenge){document.querySelector("#challenge-overlay").style.display="none";}
@@ -125,8 +129,9 @@ async function mpStartGame(){
   if(mpPlayerRows.length<2){mpSetStatus("At least two players must join before starting.");return}
   players=mpPlayerRows.map(p=>({name:p.player_name,pos:0,previous:null,score:0,userId:p.user_id}));
   current=0;remaining=0;moving=false;gameOver=false;challengeResolved=false;mpChallenge=null;
+  roundLimit=Math.max(1,Math.min(50,Number.parseInt(document.querySelector("#round-limit").value,10)||5));roundsCompleted=0;setupMode=false;
   document.querySelector("#die").textContent="—";
-  renderBoard();startTurn();mpRoomStatus="playing";
+  renderBoard();startTurn();mpRoomStatus="playing";updateSetupUI();
   const {error}=await mpClient.rpc("save_game_state",{p_code:mpRoomCode,p_state:mpCurrentSnapshot(),p_status:"playing"});
   if(error)throw error;
   mpSetActions(true);await mpRefreshPlayers();
