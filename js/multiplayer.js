@@ -3,8 +3,7 @@ let mpClient=null,mpUserId=null,mpRoomId=null,mpRoomCode="",mpIsHost=false,mpRoo
 function mpSetStatus(message){const el=document.querySelector("#mp-status");if(el)el.textContent=message}
 function mpSetActions(show){const el=document.querySelector("#mp-room-actions");if(el)el.style.display=show?"grid":"none"}
 function mpCanAct(){
- if(!mpRoomId)return true;
- return mpRoomStatus==="playing" && !!mpUserId && players[current]?.userId===mpUserId;
+ return !!mpRoomId && mpRoomStatus==="playing" && !!mpUserId && players[current]?.userId===mpUserId;
 }
 async function mpEnsureClient(){
  if(mpClient&&mpUserId)return;
