@@ -58,8 +58,8 @@ DECLARE
   v_player jsonb;
   v_players jsonb := '[]'::jsonb;
   v_new_score integer;
-  v_index integer := 0;
   v_user_text text;
+  v_winner_name text;
 BEGIN
   SELECT * INTO v_room FROM public.game_rooms WHERE code = upper(trim(p_code)) FOR UPDATE;
   IF NOT FOUND OR v_room.status <> 'playing' THEN RAISE EXCEPTION 'Room is not in a playing state'; END IF;
@@ -75,28 +75,34 @@ BEGIN
   v_correct := v_trivia.correct_user_ids;
   IF v_is_correct THEN v_correct := array_append(v_correct,v_user); END IF;
   SELECT count(*) INTO v_player_count FROM public.room_players WHERE room_id=v_room.id;
-  v_resolved := cardinality(v_answered) >= v_player_count;
+  -- First correct answer resolves immediately; if everyone is wrong, reveal the answer.
+  v_resolved := v_is_correct OR cardinality(v_answered) >= v_player_count;
+
   UPDATE public.room_trivia SET answered_user_ids=v_answered,correct_user_ids=v_correct,
     status=CASE WHEN v_resolved THEN 'resolved' ELSE 'open' END,
-    winner_user_id=CASE WHEN v_resolved THEN v_correct[1] ELSE NULL END
+    winner_user_id=CASE WHEN v_is_correct THEN v_user ELSE NULL END
   WHERE room_id=v_room.id;
+
+  SELECT player_name INTO v_winner_name FROM public.room_players
+    WHERE room_id=v_room.id AND user_id=v_user AND v_is_correct;
 
   v_state := COALESCE(v_room.state,'{}'::jsonb);
   v_challenge := COALESCE(v_state->'challenge','{}'::jsonb) || jsonb_build_object(
     'answeredUserIds',to_jsonb(v_answered),'correctUserIds',to_jsonb(v_correct),
-    'status',CASE WHEN v_resolved THEN 'resolved' ELSE 'open' END
+    'status',CASE WHEN v_resolved THEN 'resolved' ELSE 'open' END,
+    'winnerUserId',CASE WHEN v_is_correct THEN v_user ELSE NULL END,
+    'winnerName',CASE WHEN v_is_correct THEN v_winner_name ELSE NULL END
   );
   IF v_resolved THEN v_challenge := v_challenge || jsonb_build_object('correctAnswer',v_trivia.correct_answer); END IF;
 
   FOR v_player IN SELECT value FROM jsonb_array_elements(COALESCE(v_state->'players','[]'::jsonb)) LOOP
     v_user_text := COALESCE(v_player->>'userId',v_player->>'user_id','');
-    IF v_user_text <> '' AND v_user_text::uuid = v_user AND v_is_correct THEN
-      v_new_score := COALESCE((v_player->>'score')::integer,0) + CASE WHEN v_user=v_trivia.active_player_id THEN 2 ELSE 1 END;
+    IF v_is_correct AND v_user_text <> '' AND v_user_text::uuid = v_user THEN
+      v_new_score := COALESCE((v_player->>'score')::integer,0) + 2;
       v_player := jsonb_set(v_player,'{score}',to_jsonb(v_new_score),true);
       UPDATE public.room_players SET score=v_new_score WHERE room_id=v_room.id AND user_id=v_user;
     END IF;
     v_players := v_players || jsonb_build_array(v_player);
-    v_index := v_index+1;
   END LOOP;
   v_state := jsonb_set(v_state,'{players}',v_players,true);
   v_state := jsonb_set(v_state,'{challenge}',v_challenge,true);
