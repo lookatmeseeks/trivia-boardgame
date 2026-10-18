@@ -25,9 +25,8 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
   await mpStartSharedTrivia(entry,options);
   return;
   const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art","manga-panel":"Manga panel"};
-  const difficultyNames={1:"Easy",2:"Medium",3:"Hard"};
-  document.querySelector("#challenge-title").textContent=entry.type==="manga-panel"?"Which manga is this panel from?":"Which anime is this from?";
-  document.querySelector("#challenge-instructions").textContent=(typeNames[entry.type]||"Anime clue")+" clue · "+(difficultyNames[entry.difficulty]||"Unknown difficulty");
+  document.querySelector("#challenge-title").textContent=entry.type==="manga-panel"?"Which manga is this panel from?":"Identify this anime";
+  document.querySelector("#challenge-instructions").textContent=(typeNames[entry.type]||"Anime clue")+" event";
   msg.textContent="Each player gets one answer. Pass the device to the next player when prompted.";
   source.innerHTML="Clue: "+entry.label+". Source: "+(entry.sourceUrl||"Safebooru")+(entry.sourceUrl?' · <a href="'+entry.sourceUrl+'" target="_blank" rel="noopener" style="color:#66e3ef">View source</a>':"");
   challengeBusy=false;
