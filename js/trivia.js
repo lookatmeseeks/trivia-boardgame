@@ -12,7 +12,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
    if(!candidates.length)throw new Error("The global library has no "+wantedType+" items. Upload one first.");
    const item=candidates[Math.floor(Math.random()*candidates.length)];
    const mediaUrl=mediaLibraryPublicUrl(item.storage_path);
-   entry={title:item.answer,label:item.title,url:mediaUrl,mediaUrl,mediaType:item.media_type,mediaMode,durationSeconds:Math.max(3,Math.min(60,Number(preset?.clipDuration)||15)),scoringNotes:typeof preset?.scoringNotes==="string"?preset.scoringNotes:"",type:"media-library",options:[]};
+   entry={title:item.answer,label:item.title,url:mediaUrl,mediaUrl,mediaType:item.media_type,mediaMode,durationSeconds:Math.max(3,Math.min(60,Number(preset?.clipDuration)||15)),answerSeconds:Math.max(10,Math.min(180,Number(preset?.answerSeconds)||30)),scoringNotes:typeof preset?.scoringNotes==="string"?preset.scoringNotes:"",type:"media-library",options:[]};
   }else if(mode==="easy"||mode==="random"||["anime-cover","anime-character","anime-fanart"].includes(mode)){
    entry=await fetchRandomEasyImage(mode);
   }else if(mode==="medium"||mode==="manga-panel"){
@@ -76,9 +76,19 @@ function stopTriviaChallenge(){
  if(typeof mpStateChanged==="function")mpStateChanged();
 }
 document.querySelector("#challenge-next").addEventListener("click",()=>{
- if(!mpRoomId||!mpChallenge||mpChallenge.status!=="resolved"||!mpCanAct())return;
- document.querySelector("#challenge-overlay").style.display="none";mpChallenge=null;challengeResolved=true;finishTurn();
+ if(!mpRoomId||!mpChallenge||mpChallenge.status!=="resolved"||(!mpCanAct()&&!mpIsHost))return;
+ if(challengeTimerInterval){clearInterval(challengeTimerInterval);challengeTimerInterval=null}
+ document.querySelector("#challenge-overlay").style.display="none";mpChallenge=null;challengeResolved=true;finishTurn();if(typeof mpStateChanged==="function")mpStateChanged();
 });
+document.querySelector("#challenge-answer-submit").addEventListener("click",async()=>{
+ const input=document.querySelector("#challenge-answer-input"),button=document.querySelector("#challenge-answer-submit"),answer=input.value.trim();
+ if(!answer){document.querySelector("#challenge-status").textContent="Write an answer before submitting.";return}
+ if(!mpChallenge||mpChallenge.type!=="media-library"||mpChallenge.status!=="open"||mpTriviaAnswered())return;
+ button.disabled=true;input.disabled=true;
+ try{await mpSubmitTriviaAnswer(answer);input.value="";document.querySelector("#challenge-status").textContent="Answer submitted. It will be revealed when the timer ends."}
+ catch(error){button.disabled=false;input.disabled=false;document.querySelector("#challenge-status").textContent="Answer could not be submitted: "+(error.message||error)}
+});
+let challengeTimerInterval=null,challengeResolveRequested=false;
 function mpRenderSharedChallenge(challenge){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
  if(!challenge){overlay.style.display="none";return}
@@ -90,22 +100,17 @@ function mpRenderSharedChallenge(challenge){
   const mediaKey=challenge.mediaUrl+":"+String(challenge.startedAt||"");
   if(media.dataset.mediaKey!==mediaKey){
    media.dataset.mediaKey=mediaKey;media.dataset.mediaUrl=challenge.mediaUrl;media.dataset.imageUrl="";media.innerHTML="";
-   let player;
-   if(challenge.mediaMode==="still"){
-    player=document.createElement("video");player.muted=true;player.playsInline=true;player.preload="auto";player.src=challenge.mediaUrl;player.controls=false;player.style.cssText="width:100%;max-height:360px;object-fit:contain";
-    player.addEventListener("loadedmetadata",()=>{try{player.currentTime=Math.min(Math.max(0.5,(Number(challenge.durationSeconds)||15)/2),Math.max(0,player.duration-0.1))}catch{}},{once:true});
-    player.addEventListener("seeked",()=>player.pause(),{once:true});
-   }else{
-    player=document.createElement(challenge.mediaMode==="audio"?"audio":"video");player.src=challenge.mediaUrl;player.controls=false;player.preload="auto";player.playsInline=true;player.style.cssText="width:100%;max-height:360px;object-fit:contain";
-    player.addEventListener("canplay",()=>{
-     const duration=Math.max(3,Math.min(60,Number(challenge.durationSeconds)||15));
-     const elapsed=Math.max(0,(Date.now()-(Number(challenge.startedAt)||Date.now()))/1000);
-     if(elapsed>=duration){msg.textContent="This clip has ended. Choose an answer.";return}
-     try{player.currentTime=Math.min(elapsed,Math.max(0,player.duration-0.1))}catch{}
-     player.play().catch(()=>{msg.textContent="Press play on the media player if your browser blocked autoplay."});
-     setTimeout(()=>{try{player.pause();if(challenge.mediaMode==="video")player.currentTime=0}catch{}},Math.max(0,duration-elapsed)*1000);
-    },{once:true});
-   }
+   const player=document.createElement(challenge.mediaMode==="audio"?"audio":"video");
+   player.src=challenge.mediaUrl;player.controls=false;player.preload="auto";player.playsInline=true;
+   player.style.cssText="width:100%;max-height:360px;object-fit:contain;background:#000";
+   player.addEventListener("canplay",()=>{
+    const duration=Math.max(3,Math.min(60,Number(challenge.durationSeconds)||15));
+    const elapsed=Math.max(0,(Date.now()-(Number(challenge.startedAt)||Date.now()))/1000);
+    if(elapsed>=duration){msg.textContent="Clip ended. Submit your answer before time runs out.";return}
+    try{player.currentTime=Math.min(elapsed,Math.max(0,player.duration-0.1))}catch{}
+    player.play().catch(()=>{msg.textContent="Your browser blocked autoplay. Use the play control to hear or watch the clip.";player.controls=true});
+    setTimeout(()=>{try{player.pause();if(challenge.mediaMode==="video")player.currentTime=0}catch{}},Math.max(0,duration-elapsed)*1000);
+   },{once:true});
    media.appendChild(player);
   }
  }else if(media.dataset.imageUrl!==challenge.imageUrl){media.dataset.imageUrl=challenge.imageUrl;media.dataset.mediaUrl="";media.innerHTML="";const img=document.createElement("img");img.alt=challenge.imageLabel||"Anime clue";img.src=challenge.imageUrl;img.onerror=()=>{media.textContent="The clue image could not be loaded."};media.appendChild(img)}
@@ -114,19 +119,72 @@ function mpRenderSharedChallenge(challenge){
  stopButton.style.display=(!mpRoomId||mpCanAct()||mpIsHost)?"block":"none";
  const alreadyAnswered=typeof mpTriviaAnswered==="function"&&mpTriviaAnswered();
  const resolved=challenge.status==="resolved";
- if(challenge.type!=="media-library")(challenge.options||[]).forEach(option=>{const button=document.createElement("button");button.textContent=option;button.disabled=alreadyAnswered||resolved||challengeBusy;button.onclick=()=>resolveTriviaAnswer(option,button);answers.appendChild(button)});
- if(resolved){
-  const correctIds=challenge.correctUserIds||[];
-  msg.textContent=challenge.winnerName
-   ?challenge.winnerName+" answered correctly first and earns 2 points. Answer: "+challenge.correctAnswer+"."
-   :"Nobody answered correctly. The answer was "+challenge.correctAnswer+".";
-  next.textContent="Continue turn";next.style.display=mpCanAct()?"block":"none";next.disabled=!mpCanAct();
+ const answerEntry=document.querySelector("#challenge-answer-entry");
+ const answerInput=document.querySelector("#challenge-answer-input");
+ const answerSubmit=document.querySelector("#challenge-answer-submit");
+ const timer=document.querySelector("#challenge-timer");
+ if(challenge.type==="media-library"){
+  answerEntry.style.display=resolved?"none":"block";
+  timer.style.display="block";
+  answerInput.disabled=alreadyAnswered||resolved;
+  answerSubmit.disabled=alreadyAnswered||resolved||challengeBusy;
+  if(alreadyAnswered)answerInput.value="";
+  if(challengeTimerInterval){clearInterval(challengeTimerInterval);challengeTimerInterval=null}
+  const updateTimer=()=>{
+   const seconds=Math.max(0,Math.ceil((Number(challenge.answerDeadline||0)-Date.now())/1000));
+   timer.textContent=resolved?"Answer time ended":seconds+" second"+(seconds===1?"":"s")+" remaining";
+   if(seconds<=0&&!resolved&&!challengeResolveRequested){
+    challengeResolveRequested=true;
+    mpResolveTriviaAnswers().catch(error=>{challengeResolveRequested=false;msg.textContent="Could not reveal answers: "+(error.message||error)});
+   }
+  };
+  updateTimer();
+  if(!resolved)challengeTimerInterval=setInterval(updateTimer,250);
+  if(resolved){
+   answers.classList.add("revealed");
+   const entries=Object.entries(challenge.answers||{});
+   if(!entries.length){const empty=document.createElement("div");empty.className="note";empty.textContent="No answers were submitted.";answers.append(empty)}
+   entries.forEach(([userId,answer])=>{
+    const row=document.createElement("div");row.className="answer-reveal-row";
+    const detail=document.createElement("div");
+    const player=players.find(p=>p.userId===userId);
+    const name=document.createElement("strong");name.textContent=player?.name||answer.playerName||"Player";
+    const text=document.createElement("div");text.className="answer-reveal-text";text.textContent=answer.text||"(blank)";
+    const awarded=Number(challenge.awardedPoints?.[userId]||0);
+    const score=document.createElement("div");score.className="note";score.textContent="Points awarded: "+awarded;
+    detail.append(name,text,score);row.append(detail);
+    if(mpIsHost){
+     const controls=document.createElement("div");controls.className="answer-award-controls";
+     const select=document.createElement("select");select.setAttribute("aria-label","Points for "+name.textContent);
+     for(let points=0;points<=10;points++){const option=document.createElement("option");option.value=String(points);option.textContent=String(points)+" pt"+(points===1?"":"s");select.append(option)}
+     select.value=String(awarded);
+     const award=document.createElement("button");award.type="button";award.className="secondary";award.style.width="auto";award.textContent="Set points";
+     award.onclick=async()=>{award.disabled=true;try{await mpAwardTriviaPoints(userId,Number(select.value))}catch(error){msg.textContent="Could not update points: "+(error.message||error)}finally{award.disabled=false}};
+     controls.append(select,award);row.append(controls);
+    }
+    answers.append(row);
+   });
+   const correct=document.createElement("div");correct.className="note";correct.textContent="Correct answer: "+(challenge.correctAnswer||"Unknown");answers.append(correct);
+   msg.textContent="Time is up. Review the submitted answers and award points.";
+   next.textContent="Continue turn";next.style.display=(mpCanAct()||mpIsHost)?"block":"none";next.disabled=!(mpCanAct()||mpIsHost);
+  }else{
+   answers.classList.remove("revealed");
+   const count=(challenge.answeredUserIds||[]).length;
+   msg.textContent=alreadyAnswered?"Your answer is submitted. Waiting for the timer. ("+count+"/"+players.length+" submitted)":"Write an answer before time runs out. ("+count+"/"+players.length+" submitted)";
+   next.style.display="none";
+  }
  }else{
-  const count=(challenge.answeredUserIds||[]).length;
-  if(alreadyAnswered)msg.textContent="Your answer is locked in. Waiting for another player. ("+count+"/"+players.length+" answered)";
-  else msg.textContent="Choose one answer. The first correct answer ends the question. ("+count+"/"+players.length+" answered)";
-  next.style.display="none";
+  answerEntry.style.display="none";timer.style.display="none";
+  (challenge.options||[]).forEach(option=>{const button=document.createElement("button");button.textContent=option;button.disabled=alreadyAnswered||resolved||challengeBusy;button.onclick=()=>resolveTriviaAnswer(option,button);answers.appendChild(button)});
+  if(resolved){
+   msg.textContent=challenge.winnerName?challenge.winnerName+" answered correctly first and earns 2 points. Answer: "+challenge.correctAnswer+".":"Nobody answered correctly. The answer was "+challenge.correctAnswer+".";
+   next.textContent="Continue turn";next.style.display=(mpCanAct()||mpIsHost)?"block":"none";next.disabled=!(mpCanAct()||mpIsHost);
+  }else{
+   const count=(challenge.answeredUserIds||[]).length;
+   msg.textContent=alreadyAnswered?"Your answer is locked in. Waiting for another player. ("+count+"/"+players.length+" answered)":"Choose one answer. The first correct answer ends the question. ("+count+"/"+players.length+" answered)";
+   next.style.display="none";
+  }
  }
- source.textContent=(challenge.type==="media-library"?"":(challenge.imageLabel||"Anime clue"))+(challenge.type==="media-library"?" · "+(Number(challenge.durationSeconds)||15)+" seconds":"")+(challenge.sourceCredit?" · Scanlation group: "+challenge.sourceCredit:"");
- if(challenge.sourceUrl){const link=document.createElement("a");link.href=challenge.sourceUrl;link.target="_blank";link.rel="noopener";link.textContent=" View source";link.style.color="#66e3ef";source.appendChild(link)}
+ source.textContent=challenge.type==="media-library"?"No thumbnail is shown. The clip is played directly. "+(Number(challenge.durationSeconds)||15)+"-second clip":(challenge.imageLabel||"Anime clue")+(challenge.sourceCredit?" · Scanlation group: "+challenge.sourceCredit:"");
+ if(challenge.sourceUrl&&challenge.type!=="media-library"){const link=document.createElement("a");link.href=challenge.sourceUrl;link.target="_blank";link.rel="noopener";link.textContent=" View source";link.style.color="#66e3ef";source.appendChild(link)}
 }
