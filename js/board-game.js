@@ -41,7 +41,7 @@ function updateSetupUI(){
  const editable=!mpRoomId||mpIsHost;panel.style.display=editable?"block":"none";
  document.querySelector("#add-round").style.display=mpRoomId?(mpIsHost&&mpRoomStatus==="playing"?"block":"none"):(setupMode?"none":"block");
  document.querySelector("#round-limit").disabled=!canEditBoard();
- ["randomize-board","clear-board","preset-name","preset-color","preset-save","preset-cancel"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
+ ["randomize-board","clear-board","preset-name","preset-color","preset-media-mode","preset-clip-duration","preset-save","preset-cancel"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
  document.querySelector("#round-limit").value=roundLimit;
  const authorInput=document.querySelector("#medium-author-search"),searchButton=document.querySelector("#medium-author-search-button");if(authorInput)authorInput.disabled=!canEditBoard();if(searchButton)searchButton.disabled=!canEditBoard();renderMediumAuthorSelections();renderPresetEditor();
  document.querySelector("#setup-status").textContent=setupMode?"Create presets, choose their events, then assign presets to board tiles.":"Round "+Math.min(roundsCompleted+1,roundLimit)+" of "+roundLimit+" · "+roundsCompleted+" completed.";
