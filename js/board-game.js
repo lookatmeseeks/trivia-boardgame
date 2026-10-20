@@ -1,81 +1,75 @@
 let nodes=[],edges=[],adjacency={};
 let boardSize=30;
-function buildBoardGraph(requestedSize=boardSize){
+function buildBoardGraph(requestedSize=boardSize,randomizePattern=false){
  boardSize=Math.max(18,Math.min(72,Math.round(Number(requestedSize)||30)));
- // Each loop is a deliberately skewed hexagon. Neighboring loops share actual
- // graph vertices, so junctions are playable tiles rather than visual crossings.
- const loops=[
-  [[80,245],[130,165],[245,150],[330,225],[330,300],[235,365]],
-  [[330,225],[405,145],[520,165],[600,250],[530,345],[420,355]],
-  [[600,250],[675,170],[790,190],[845,275],[770,365],[660,355]]
- ];
- if(boardSize>=24){
-  loops.push([[420,355],[490,390],[535,465],[475,525],[375,515],[335,435]]);
- }
- const sharedKeys=new Set(["330,225","600,250"]);
- if(loops.length===4)sharedKeys.add("420,355");
- const sides=[];
- loops.forEach((points,loopIndex)=>{
-  for(let i=0;i<points.length;i++){
-   const a=points[i],b=points[(i+1)%points.length];
-   sides.push({loopIndex,sideIndex:i,a,b,length:Math.hypot(b[0]-a[0],b[1]-a[1]),segments:1});
-  }
+ // Independent irregular hex loops. Their perimeters remain intact; bridges
+ // between loop pairs are separate edges, never shared junction vertices.
+ const centers=boardSize>=24?[[190,255],[450,235],[710,255],[450,455]]:[[220,275],[465,235],[710,275]];
+ const baseRadius=boardSize>=24?96:108;
+ const loops=centers.map((center,index)=>{
+  const rotation=randomizePattern?Math.random()*Math.PI*2:[-0.12,0.04,0.16,-0.08][index]||0;
+  const cx=center[0]+(randomizePattern?(Math.random()-.5)*36:0);
+  const cy=center[1]+(randomizePattern?(Math.random()-.5)*30:0);
+  const rx=baseRadius*(randomizePattern?0.82+Math.random()*0.32:1);
+  const ry=baseRadius*(randomizePattern?0.82+Math.random()*0.32:0.92);
+  return Array.from({length:6},(_,i)=>{
+   const angle=rotation+i*Math.PI/3;
+   const jitter=randomizePattern?(Math.random()-.5)*18:0;
+   return [cx+Math.cos(angle)*(rx+jitter),cy+Math.sin(angle)*(ry+jitter)];
+  });
  });
- // A shared vertex occurs in two loop perimeters, so add those duplicates
- // to the subdivision budget to retain exactly the requested unique tile count.
- const sharedCount=sharedKeys.size;
- const targetOccurrences=boardSize+sharedCount;
+ const sides=[];
+ loops.forEach((points,loopIndex)=>points.forEach((a,i)=>{
+  const b=points[(i+1)%points.length];
+  sides.push({loopIndex,sideIndex:i,a,b,length:Math.hypot(b[0]-a[0],b[1]-a[1]),segments:1});
+ }));
  let segmentTotal=sides.length;
- while(segmentTotal<targetOccurrences){
+ while(segmentTotal<boardSize){
   let best=sides[0];
-  for(const side of sides){
-   if(side.length/side.segments>best.length/best.segments)best=side;
-  }
-  best.segments++;
-  segmentTotal++;
+  for(const side of sides)if(side.length/side.segments>best.length/best.segments)best=side;
+  best.segments++;segmentTotal++;
  }
  nodes=[];edges=[];adjacency={};
- const idByPosition=new Map(),loopNodeIds=[];
- const getNode=(x,y,loopIndex)=>{
-  const key=Math.round(x*1000)+","+Math.round(y*1000);
-  if(idByPosition.has(key))return idByPosition.get(key);
-  const id=nodes.length;
-  const roundedKey=Math.round(x)+","+Math.round(y);
-  nodes.push({id,x,y,label:String(id+1),ring:loopIndex});
-  idByPosition.set(key,id);
-  return id;
- };
+ const loopNodeIds=[];
  loops.forEach((points,loopIndex)=>{
-  const localIds=[];
-  const loopSides=sides.filter(side=>side.loopIndex===loopIndex);
-  loopSides.forEach(side=>{
+  const ids=[];
+  sides.filter(side=>side.loopIndex===loopIndex).forEach(side=>{
    for(let step=0;step<side.segments;step++){
-    const t=step/side.segments;
-    localIds.push(getNode(side.a[0]+(side.b[0]-side.a[0])*t,side.a[1]+(side.b[1]-side.a[1])*t,loopIndex));
+    const t=step/side.segments,id=nodes.length;
+    nodes.push({id,x:side.a[0]+(side.b[0]-side.a[0])*t,y:side.a[1]+(side.b[1]-side.a[1])*t,label:String(id+1),ring:loopIndex});
+    ids.push(id);
    }
   });
-  for(let i=0;i<localIds.length;i++){
-   const a=localIds[i],b=localIds[(i+1)%localIds.length];
-   if(a!==b&&!edges.some(e=>(e[0]===a&&e[1]===b)||(e[0]===b&&e[1]===a)))edges.push([a,b]);
+  for(let i=0;i<ids.length;i++)edges.push([ids[i],ids[(i+1)%ids.length]]);
+  loopNodeIds.push(ids);
+ });
+ // Candidate links form a connected network, but any loop pair has at most
+ // one bridge. A randomized spanning tree guarantees connectivity; additional
+ // links are optional, so some pairs deliberately have zero.
+ const count=loops.length;
+ const candidates=count===3?[[0,1],[1,2],[0,2]]:[[0,1],[1,2],[1,3],[0,3],[2,3],[0,2]];
+ const shuffled=candidates.slice().sort(()=>Math.random()-.5);
+ const parent=Array.from({length:count},(_,i)=>i);
+ const root=x=>{while(parent[x]!==x){parent[x]=parent[parent[x]];x=parent[x]}return x};
+ const chosen=[];
+ shuffled.forEach(([a,b])=>{const ra=root(a),rb=root(b);if(ra!==rb){parent[ra]=rb;chosen.push([a,b])}});
+ shuffled.forEach(pair=>{if(chosen.length>=count-1+Math.floor(Math.random()*2))return;if(!chosen.some(p=>p[0]===pair[0]&&p[1]===pair[1])&&Math.random()<0.45)chosen.push(pair)});
+ chosen.forEach(([a,b])=>{
+  let bestA=loopNodeIds[a][0],bestB=loopNodeIds[b][0],bestDistance=Infinity;
+  for(const ai of loopNodeIds[a])for(const bi of loopNodeIds[b]){
+   const A=nodes[ai],B=nodes[bi],d=(A.x-B.x)**2+(A.y-B.y)**2;
+   if(d<bestDistance){bestDistance=d;bestA=ai;bestB=bi}
   }
-  loopNodeIds.push(localIds);
+  if(!edges.some(e=>(e[0]===bestA&&e[1]===bestB)||(e[0]===bestB&&e[1]===bestA)))edges.push([bestA,bestB]);
  });
  edges.forEach(([a,b])=>{(adjacency[a]||(adjacency[a]=[])).push(b);(adjacency[b]||(adjacency[b]=[])).push(a)});
- // Place starting spaces around each loop, excluding the shared junctions.
  const starts=[];
- loopNodeIds.forEach(ids=>{
-  [0.28,0.72].forEach(fraction=>{
-   const target=Math.round((ids.length-1)*fraction);
-   for(let offset=0;offset<ids.length;offset++){
-    const candidates=[(target+offset)%ids.length,(target-offset+ids.length)%ids.length];
-    const found=candidates.map(i=>ids[i]).find(id=>!sharedKeys.has(Math.round(nodes[id].x)+","+Math.round(nodes[id].y)));
-    if(found!==undefined){starts.push(found);break}
-   }
-  });
- });
+ loopNodeIds.forEach(ids=>[0.25,0.7].forEach(fraction=>{
+  const id=ids[Math.round((ids.length-1)*fraction)];
+  if(id!==undefined)starts.push(id);
+ }));
  const uniqueStarts=[...new Set(starts)];
  nodes.forEach(n=>{if(uniqueStarts.includes(n.id))n.type="start"});
- nodes.sort((a,b)=>a.id-b.id);
  if(nodes.length!==boardSize)console.warn("Board graph tile count mismatch",nodes.length,boardSize);
  return {nodes,edges,adjacency,starts:uniqueStarts};
 }
@@ -109,12 +103,20 @@ function updateSetupUI(){
  const addRoundButton=document.querySelector("#add-round");if(addRoundButton)addRoundButton.style.display="none";
  document.querySelector("#round-limit").disabled=!canEditBoard();
  const boardSizeInput=document.querySelector("#board-size");if(boardSizeInput){boardSizeInput.disabled=!canEditBoard();boardSizeInput.value=boardSize;}
- ["randomize-board","clear-board","preset-name","preset-color","preset-answer-mode","preset-media-mode","preset-clip-duration","preset-scoring-notes","preset-save","preset-cancel"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
+ ["randomize-board","randomize-pattern","clear-board","preset-name","preset-color","preset-answer-mode","preset-media-mode","preset-clip-duration","preset-scoring-notes","preset-save","preset-cancel"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
  document.querySelector("#round-limit").value=roundLimit;
  const authorInput=document.querySelector("#medium-author-search"),searchButton=document.querySelector("#medium-author-search-button");if(authorInput)authorInput.disabled=!canEditBoard();if(searchButton)searchButton.disabled=!canEditBoard();renderMediumAuthorSelections();renderPresetEditor();
  document.querySelector("#setup-status").textContent=setupMode?"Create presets, choose their events, then assign presets to board tiles.":"Round "+Math.min(roundsCompleted+1,roundLimit)+" of "+roundLimit+" · "+roundsCompleted+" completed.";
 }
 function handleBoardNodeClick(id){if(!canEditBoard())return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Create a preset with at least one event first.";return}const currentId=tileTypes[id],index=allowed.indexOf(currentId);if(index<0)tileTypes[id]=allowed[0];else if(index===allowed.length-1)delete tileTypes[id];else tileTypes[id]=allowed[index+1];renderBoard();if(typeof mpStateChanged==="function")mpStateChanged()}
+function randomizeBoardPattern(){
+ if(!canEditBoard())return;
+ buildBoardGraph(boardSize,true);
+ players.forEach(player=>{if(!node(player.pos))player.pos=0;if(player.previous!==null&&!node(player.previous))player.previous=null});
+ renderBoard();updateUI();updateSetupUI();
+ if(typeof mpStateChanged==="function")mpStateChanged();
+ document.querySelector("#setup-status").textContent="Board pattern randomized. Tile count and connected movement paths are preserved.";
+}
 function randomizeBoard(){if(!canEditBoard())return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Create a preset with at least one event first.";return}tileTypes={};nodes.forEach(n=>{tileTypes[n.id]=allowed[Math.floor(Math.random()*allowed.length)]});renderBoard();if(typeof mpStateChanged==="function")mpStateChanged();document.querySelector("#setup-status").textContent="Presets randomly distributed. Click nodes to cycle through them."}
 function clearBoardTiles(){if(!canEditBoard())return;tileTypes={};renderBoard();if(typeof mpStateChanged==="function")mpStateChanged();document.querySelector("#setup-status").textContent="All tiles cleared."}
 function renderPresetEditor(){
@@ -274,6 +276,7 @@ document.querySelector("#roll").addEventListener("click",roll);document.querySel
 resetGame();
 
 document.querySelector("#randomize-board").addEventListener("click",randomizeBoard);
+document.querySelector("#randomize-pattern").addEventListener("click",randomizeBoardPattern);
 document.querySelector("#clear-board").addEventListener("click",clearBoardTiles);
 function getMediumAuthors(){return mediumAuthors.slice()}
 function getMediumAuthorIds(){return mediumAuthorSelections.map(author=>author.id).filter(Boolean)}
