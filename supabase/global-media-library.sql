@@ -43,7 +43,7 @@ language sql
 stable
 security definer
 set search_path = public, auth
-as $
+as $function$
   select auth.uid() is not null and exists (
     select 1
     from public.room_players rp
@@ -52,7 +52,7 @@ as $
       and rp.player_order = 1
       and gr.status in ('lobby','playing')
   );
-$;
+$function$;
 
 revoke all on function public.is_anime_party_room_host() from public;
 grant execute on function public.is_anime_party_room_host() to authenticated;
