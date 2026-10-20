@@ -177,7 +177,7 @@ function mpRenderSharedChallenge(challenge){
     answers.append(row);
    });
    const correct=document.createElement("div");correct.className="note";correct.textContent="Correct answer: "+(challenge.correctAnswer||"Unknown");answers.append(correct);
-   msg.textContent="Time is up. Review the submitted answers and award points.";
+   msg.textContent=mpIsHost?"Review the submitted answers and set points for each player.":"Waiting for the host to review answers and set points.";
    next.textContent="Continue turn";next.style.display=(mpCanAct()||mpIsHost)?"block":"none";next.disabled=!(mpCanAct()||mpIsHost);
   }else{
    answers.classList.remove("revealed");
