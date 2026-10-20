@@ -91,9 +91,14 @@ function mpRenderSharedChallenge(challenge){
     player.addEventListener("seeked",()=>player.pause(),{once:true});
    }else{
     player=document.createElement(challenge.mediaMode==="audio"?"audio":"video");player.src=challenge.mediaUrl;player.controls=false;player.preload="auto";player.playsInline=true;player.style.cssText="width:100%;max-height:360px;object-fit:contain";
-    player.addEventListener("canplay",()=>{player.play().catch(()=>{msg.textContent="Press play on the media player if your browser blocked autoplay."});},{once:true});
-    const duration=Math.max(3,Math.min(60,Number(challenge.durationSeconds)||15));
-    setTimeout(()=>{try{player.pause();if(challenge.mediaMode==="video")player.currentTime=0}catch{}},duration*1000);
+    player.addEventListener("canplay",()=>{
+     const duration=Math.max(3,Math.min(60,Number(challenge.durationSeconds)||15));
+     const elapsed=Math.max(0,(Date.now()-(Number(challenge.startedAt)||Date.now()))/1000);
+     if(elapsed>=duration){msg.textContent="This clip has ended. Choose an answer.";return}
+     try{player.currentTime=Math.min(elapsed,Math.max(0,player.duration-0.1))}catch{}
+     player.play().catch(()=>{msg.textContent="Press play on the media player if your browser blocked autoplay."});
+     setTimeout(()=>{try{player.pause();if(challenge.mediaMode==="video")player.currentTime=0}catch{}},Math.max(0,duration-elapsed)*1000);
+    },{once:true});
    }
    media.appendChild(player);
   }
