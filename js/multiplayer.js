@@ -68,7 +68,7 @@ function mpApplySnapshot(state){
   remaining=Math.max(0,Number(state.remaining)||0);
   moving=false;gameOver=!!state.gameOver;challengeResolved=state.challenge?.status==="resolved";mpChallenge=state.challenge||null;
   if(state.tileTypes&&typeof state.tileTypes==="object")tileTypes=state.tileTypes;
-  if(Array.isArray(state.tilePresets)){tilePresets=state.tilePresets.filter(p=>p&&typeof p.id==="string"&&typeof p.name==="string"&&typeof p.color==="string"&&Array.isArray(p.events)).map(p=>({id:p.id,name:p.name,color:p.color,events:p.events.filter(id=>typeof id==="string"),mediaMode:["audio","video","still"].includes(p.mediaMode)?p.mediaMode:"video",clipDuration:Math.max(3,Math.min(60,Number(p.clipDuration)||15)),scoringNotes:typeof p.scoringNotes==="string"?p.scoringNotes:""}));}
+  if(Array.isArray(state.tilePresets)){tilePresets=state.tilePresets.filter(p=>p&&typeof p.id==="string"&&typeof p.name==="string"&&typeof p.color==="string"&&Array.isArray(p.events)).map(p=>({id:p.id,name:p.name,color:p.color,events:p.events.filter(id=>typeof id==="string"),mediaMode:["audio","video"].includes(p.mediaMode)?p.mediaMode:"video",clipDuration:Math.max(3,Math.min(60,Number(p.clipDuration)||15)),scoringNotes:typeof p.scoringNotes==="string"?p.scoringNotes:"",answerSeconds:Math.max(10,Math.min(180,Number(p.answerSeconds)||30))}));}
   if(Number.isFinite(Number(state.presetSequence))&&Number(state.presetSequence)>0)presetSequence=Number(state.presetSequence);
   if(Array.isArray(state.mediumAuthorSelections)){mediumAuthorSelections=state.mediumAuthorSelections.filter(a=>a&&typeof a.name==="string").map(a=>({id:typeof a.id==="string"?a.id:"",name:a.name}));mediumAuthors=mediumAuthorSelections.map(a=>a.name)}else if(Array.isArray(state.mediumAuthors)){mediumAuthors=state.mediumAuthors.filter(x=>typeof x==="string");mediumAuthorSelections=mediumAuthors.map(name=>({id:"",name}))}renderMediumAuthorSelections();
   if(Number.isFinite(Number(state.roundLimit))&&Number(state.roundLimit)>0)roundLimit=Number(state.roundLimit);
@@ -159,7 +159,7 @@ document.querySelector("#reset").addEventListener("click",()=>{if(mpRoomId&&!mpI
 async function mpStartSharedTrivia(entry,options){
  if(!mpRoomId)return false;
  if(!mpCanAct())throw new Error("Only the active player can start this question.");
- const question={imageUrl:entry.url||"",imageLabel:entry.label,type:entry.type||"media-library",difficulty:entry.difficulty||"",sourceUrl:entry.sourceUrl||"",sourceCredit:entry.sourceCredit||"",mediaUrl:entry.mediaUrl||"",mediaType:entry.mediaType||"",mediaMode:entry.mediaMode||"",durationSeconds:Number(entry.durationSeconds)||15,startedAt:entry.type==="media-library"?Date.now():null,scoringNotes:entry.scoringNotes||"",options};
+ const question={imageUrl:entry.url||"",imageLabel:entry.label,type:entry.type||"media-library",difficulty:entry.difficulty||"",sourceUrl:entry.sourceUrl||"",sourceCredit:entry.sourceCredit||"",mediaUrl:entry.mediaUrl||"",mediaType:entry.mediaType||"",mediaMode:entry.mediaMode||"",durationSeconds:Number(entry.durationSeconds)||15,startedAt:entry.type==="media-library"?Date.now():null,scoringNotes:entry.scoringNotes||"",answerSeconds:Math.max(10,Math.min(180,Number(entry.answerSeconds)||30)),options};
  const base=mpCurrentSnapshot();
  const {data,error}=await mpClient.rpc("start_shared_trivia",{p_code:mpRoomCode,p_state:base,p_question:question,p_answer:entry.title});
  if(error)throw error;
@@ -171,6 +171,20 @@ async function mpSubmitTriviaAnswer(answer){
  const {data,error}=await mpClient.rpc("submit_trivia_answer",{p_code:mpRoomCode,p_answer:answer});
  if(error)throw error;
  mpApplySnapshot(data.state||data);
+ return data;
+}
+async function mpResolveTriviaAnswers(){
+ if(!mpRoomId||!mpChallenge)return null;
+ const {data,error}=await mpClient.rpc("resolve_trivia_answers",{p_code:mpRoomCode});
+ if(error)throw error;
+ mpApplySnapshot(data.state||data);
+ return data;
+}
+async function mpAwardTriviaPoints(userId,points){
+ if(!mpRoomId||!mpIsHost)throw new Error("Only the host can award points.");
+ const {data,error}=await mpClient.rpc("award_trivia_points",{p_code:mpRoomCode,p_user_id:userId,p_points:points});
+ if(error)throw error;
+ mpApplySnapshot(data);
  return data;
 }
 function mpTriviaAnswered(){
