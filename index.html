@@ -22,13 +22,14 @@
     <div class="preset-list-column">
      <label for="round-limit" class="note">Rounds (one round = every player takes one turn)</label>
      <input id="round-limit" type="number" min="1" max="50" value="5">
+     <label for="board-size" class="note">Board size (number of tiles, 18–72)</label>
+     <input id="board-size" type="number" min="18" max="72" step="1" value="30">
      <div class="section-title">Tile presets</div>
      <p class="note">Every non-empty tile uses a preset. A preset controls its name, color, and which events may happen on it.</p>
      <div id="preset-list" style="display:grid;gap:7px;margin:8px 0"></div>
      <p class="note">Click a board tile to cycle through presets. After the last preset, it becomes empty.</p>
      <button class="secondary" id="randomize-board" type="button">Randomly distribute tiles</button>
      <button class="secondary" id="clear-board" type="button">Clear all tiles</button>
-     <button class="secondary" id="add-round" type="button" style="display:none">Add one round</button>
      <div class="status" id="setup-status" style="margin-top:8px">Configure the board before starting.</div>
     </div>
     <div class="preset-edit-column">
