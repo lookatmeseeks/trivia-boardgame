@@ -2,57 +2,81 @@ let nodes=[],edges=[],adjacency={};
 let boardSize=30;
 function buildBoardGraph(requestedSize=boardSize){
  boardSize=Math.max(18,Math.min(72,Math.round(Number(requestedSize)||30)));
- const ringCount=3,totalRingNodes=boardSize+4,base=Math.floor(totalRingNodes/ringCount),extra=totalRingNodes%ringCount;
- const counts=[base+(extra>0?1:0),base+(extra>1?1:0),base];
- const radius=150,centerY=300,centers=[190,450,710],sharedByRing=[{}, {}, {}];
- const sharedAngles=[Math.acos(130/radius),2*Math.PI-Math.acos(130/radius),Math.PI-Math.acos(130/radius),Math.PI+Math.acos(130/radius)];
- const sharedCoords=[
-  [{x:320,y:centerY-Math.sqrt(radius*radius-130*130)},{x:320,y:centerY+Math.sqrt(radius*radius-130*130)}],
-  [{x:320,y:centerY-Math.sqrt(radius*radius-130*130)},{x:320,y:centerY+Math.sqrt(radius*radius-130*130)},{x:580,y:centerY-Math.sqrt(radius*radius-130*130)},{x:580,y:centerY+Math.sqrt(radius*radius-130*130)}],
-  [{x:580,y:centerY-Math.sqrt(radius*radius-130*130)},{x:580,y:centerY+Math.sqrt(radius*radius-130*130)}]
+ // Each loop is a deliberately skewed hexagon. Neighboring loops share actual
+ // graph vertices, so junctions are playable tiles rather than visual crossings.
+ const loops=[
+  [[80,245],[130,165],[245,150],[330,225],[330,300],[235,365]],
+  [[330,225],[405,145],[520,165],[600,250],[530,345],[420,355]],
+  [[600,250],[675,170],[790,190],[845,275],[770,365],[660,355]]
  ];
- const ringPoints=[];
- for(let r=0;r<ringCount;r++){
-  const points=[];
-  for(let i=0;i<counts[r];i++){
-   const angle=-Math.PI/2+(2*Math.PI*i/counts[r]);
-   points.push({angle,x:centers[r]+Math.cos(angle)*radius,y:centerY+Math.sin(angle)*radius,ring:r,index:i});
+ if(boardSize>=24){
+  loops.push([[420,355],[490,390],[535,465],[475,525],[375,515],[335,435]]);
+ }
+ const sharedKeys=new Set(["330,225","600,250"]);
+ if(loops.length===4)sharedKeys.add("420,355");
+ const sides=[];
+ loops.forEach((points,loopIndex)=>{
+  for(let i=0;i<points.length;i++){
+   const a=points[i],b=points[(i+1)%points.length];
+   sides.push({loopIndex,sideIndex:i,a,b,length:Math.hypot(b[0]-a[0],b[1]-a[1]),segments:1});
   }
-  const a=Math.acos(130/radius);
-  const targetAngles=r===0?[2*Math.PI-a,a]:r===1?[Math.PI+a,Math.PI-a,2*Math.PI-a,a]:[Math.PI+a,Math.PI-a];
-  const used=new Set();
-  targetAngles.forEach((angle,j)=>{
-   let best=-1,bestDelta=Infinity;
-   points.forEach((p,i)=>{if(used.has(i))return;let d=Math.abs(p.angle-angle);d=Math.min(d,2*Math.PI-d);if(d<bestDelta){bestDelta=d;best=i}});
-   if(best>=0){used.add(best);const coord=sharedCoords[r][j];points[best].x=coord.x;points[best].y=coord.y;points[best].sharedKey=(r===0?"L":r===2?"R":j<2?"L":"R")+":"+j%2}
-  });
-  ringPoints.push(points.sort((a,b)=>a.angle-b.angle));
+ });
+ // A shared vertex occurs in two loop perimeters, so add those duplicates
+ // to the subdivision budget to retain exactly the requested unique tile count.
+ const sharedCount=sharedKeys.size;
+ const targetOccurrences=boardSize+sharedCount;
+ let segmentTotal=sides.length;
+ while(segmentTotal<targetOccurrences){
+  let best=sides[0];
+  for(const side of sides){
+   if(side.length/side.segments>best.length/best.segments)best=side;
+  }
+  best.segments++;
+  segmentTotal++;
  }
  nodes=[];edges=[];adjacency={};
- const idByKey=new Map();let nextId=0;
- ringPoints.forEach((points,r)=>{
-  const ids=[];
-  points.forEach(p=>{
-   let key=p.sharedKey;
-   if(key&&r===1)key=(p.x<450?"L:":"R:")+(Math.round(p.y)<300?"0":"1");
-   if(key&&r!==1)key=(r===0?"L:":"R:")+(Math.round(p.y)<300?"0":"1");
-   let id=key&&idByKey.has(key)?idByKey.get(key):nextId++;
-   if(key&&!idByKey.has(key))idByKey.set(key,id);
-   if(!nodes.some(n=>n.id===id))nodes.push({id,x:p.x,y:p.y,label:String(id+1),ring:r});
-   ids.push(id);
+ const idByPosition=new Map(),loopNodeIds=[];
+ const getNode=(x,y,loopIndex)=>{
+  const key=Math.round(x*1000)+","+Math.round(y*1000);
+  if(idByPosition.has(key))return idByPosition.get(key);
+  const id=nodes.length;
+  const roundedKey=Math.round(x)+","+Math.round(y);
+  nodes.push({id,x,y,label:String(id+1),ring:loopIndex});
+  idByPosition.set(key,id);
+  return id;
+ };
+ loops.forEach((points,loopIndex)=>{
+  const localIds=[];
+  const loopSides=sides.filter(side=>side.loopIndex===loopIndex);
+  loopSides.forEach(side=>{
+   for(let step=0;step<side.segments;step++){
+    const t=step/side.segments;
+    localIds.push(getNode(side.a[0]+(side.b[0]-side.a[0])*t,side.a[1]+(side.b[1]-side.a[1])*t,loopIndex));
+   }
   });
-  for(let i=0;i<ids.length;i++){const a=ids[i],b=ids[(i+1)%ids.length];if(a!==b&&!edges.some(e=>(e[0]===a&&e[1]===b)||(e[0]===b&&e[1]===a)))edges.push([a,b])}
+  for(let i=0;i<localIds.length;i++){
+   const a=localIds[i],b=localIds[(i+1)%localIds.length];
+   if(a!==b&&!edges.some(e=>(e[0]===a&&e[1]===b)||(e[0]===b&&e[1]===a)))edges.push([a,b]);
+  }
+  loopNodeIds.push(localIds);
  });
- const starts=[];
- ringPoints.forEach((points,r)=>points.forEach(p=>{
-  if(p.sharedKey)return;
-  const step=Math.max(2,Math.floor(counts[r]/3));
-  if(p.index%step===0)starts.push(nodes.find(n=>Math.abs(n.x-p.x)<0.01&&Math.abs(n.y-p.y)<0.01)?.id);
- }));
- const uniqueStarts=[...new Set(starts.filter(Number.isInteger))];
- nodes.forEach(n=>{if(uniqueStarts.includes(n.id))n.type="start"});
  edges.forEach(([a,b])=>{(adjacency[a]||(adjacency[a]=[])).push(b);(adjacency[b]||(adjacency[b]=[])).push(a)});
+ // Place starting spaces around each loop, excluding the shared junctions.
+ const starts=[];
+ loopNodeIds.forEach(ids=>{
+  [0.28,0.72].forEach(fraction=>{
+   const target=Math.round((ids.length-1)*fraction);
+   for(let offset=0;offset<ids.length;offset++){
+    const candidates=[(target+offset)%ids.length,(target-offset+ids.length)%ids.length];
+    const found=candidates.map(i=>ids[i]).find(id=>!sharedKeys.has(Math.round(nodes[id].x)+","+Math.round(nodes[id].y)));
+    if(found!==undefined){starts.push(found);break}
+   }
+  });
+ });
+ const uniqueStarts=[...new Set(starts)];
+ nodes.forEach(n=>{if(uniqueStarts.includes(n.id))n.type="start"});
  nodes.sort((a,b)=>a.id-b.id);
+ if(nodes.length!==boardSize)console.warn("Board graph tile count mismatch",nodes.length,boardSize);
  return {nodes,edges,adjacency,starts:uniqueStarts};
 }
 buildBoardGraph(boardSize);
