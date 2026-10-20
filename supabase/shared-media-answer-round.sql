@@ -36,7 +36,7 @@ BEGIN
   INSERT INTO public.room_trivia(room_id,correct_answer,answered_user_ids,correct_user_ids,status,winner_user_id,active_player_id,submitted_answers)
   VALUES(v_room.id,p_answer,'{}'::uuid[],'{}'::uuid[],'open',NULL,v_active_id,'{}'::jsonb)
   ON CONFLICT(room_id) DO UPDATE SET correct_answer=EXCLUDED.correct_answer,answered_user_ids='{}'::uuid[],
-    correct_user_ids='{}'::uuid[],'status'='open',winner_user_id=NULL,active_player_id=EXCLUDED.active_player_id,
+    correct_user_ids='{}'::uuid[],status='open',winner_user_id=NULL,active_player_id=EXCLUDED.active_player_id,
     submitted_answers='{}'::jsonb,created_at=now();
   UPDATE public.game_rooms SET state=v_state,status='playing' WHERE id=v_room.id;
   RETURN v_state;
@@ -79,7 +79,7 @@ BEGIN
   v_state := COALESCE(v_room.state,'{}'::jsonb);
   v_state := jsonb_set(v_state,'{updatedBy}',to_jsonb(v_user::text),true);
   v_challenge := COALESCE(v_state->'challenge','{}'::jsonb) || jsonb_build_object(
-    'answeredUserIds',to_jsonb(v_answered),'answers',v_answers
+    'answeredUserIds',to_jsonb(v_answered)
   );
   v_state := jsonb_set(v_state,'{challenge}',v_challenge,true);
   UPDATE public.game_rooms SET state=v_state WHERE id=v_room.id;
@@ -155,9 +155,23 @@ BEGIN
     v_players := v_players || jsonb_build_array(v_player);
   END LOOP;
   IF NOT v_found THEN RAISE EXCEPTION 'Player not found in the game state'; END IF;
-  v_challenge := v_challenge || jsonb_build_object(
-    'awardedPoints',COALESCE(v_challenge->'awardedPoints','{}'::jsonb) || jsonb_build_object(p_user_id::text,p_points)
-  );
+  DECLARE
+    v_previous integer;
+  BEGIN
+    v_previous := COALESCE((v_challenge->'awardedPoints'->>p_user_id::text)::integer,0);
+    v_challenge := v_challenge || jsonb_build_object(
+      'awardedPoints',COALESCE(v_challenge->'awardedPoints','{}'::jsonb) || jsonb_build_object(p_user_id::text,p_points)
+    );
+    v_players := '[]'::jsonb;
+    FOR v_player IN SELECT value FROM jsonb_array_elements(COALESCE(v_state->'players','[]'::jsonb)) LOOP
+      IF COALESCE(v_player->>'userId',v_player->>'user_id','')=p_user_id::text THEN
+        v_score := COALESCE((v_player->>'score')::integer,0) + p_points - v_previous;
+        v_player := jsonb_set(v_player,'{score}',to_jsonb(v_score),true);
+        UPDATE public.room_players SET score=v_score WHERE room_id=v_room.id AND user_id=p_user_id;
+      END IF;
+      v_players := v_players || jsonb_build_array(v_player);
+    END LOOP;
+  END;
   v_state := jsonb_set(v_state,'{players}',v_players,true);
   v_state := jsonb_set(v_state,'{challenge}',v_challenge,true);
   v_state := jsonb_set(v_state,'{updatedBy}',to_jsonb(auth.uid()::text),true);
