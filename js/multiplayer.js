@@ -78,7 +78,7 @@ function mpApplySnapshot(state){
   document.querySelector("#die").textContent=state.die||"—";
   choicesEl.innerHTML="";
   renderBoard();updateUI();updateSetupUI();
-  setStatus(mpChallenge?"Trivia challenge in progress.":(gameOver?"Game finished.":(mpCanAct()?"Your turn. Roll or continue your move.":players[current].name+"'s turn. Waiting for them to move.")));
+  setStatus(mpChallenge?"Trivia challenge in progress.":(gameOver?(()=>{const highScore=Math.max(...players.map(player=>player.score));const winners=players.filter(player=>player.score===highScore).map(player=>player.name);return "All "+roundLimit+" rounds are over. "+(winners.length===1?"Winner: "+winners[0]+" with "+highScore+" points.":"Tie: "+winners.join(" and ")+" with "+highScore+" points each.")+" Final scores: "+players.map(player=>player.name+" "+player.score).join(", ")+ "."})():(mpCanAct()?"Your turn. Roll or continue your move.":players[current].name+"'s turn. Waiting for them to move.")));
   if(mpChallenge&&typeof mpRenderSharedChallenge==="function")mpRenderSharedChallenge(mpChallenge);
   else if(!mpChallenge){document.querySelector("#challenge-overlay").style.display="none";}
   document.querySelector("#roll").disabled=!mpCanAct()||remaining>0||moving||gameOver||!!mpChallenge;
