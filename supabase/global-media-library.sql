@@ -1,7 +1,7 @@
 -- Global Anime Party media library.
 -- Run this in the Supabase SQL Editor before using the library UI.
 -- Files are public-read so every player in every room can play them.
--- Upload/delete controls are shown only to the room host in the app UI.
+-- Upload/delete is restricted in SQL to users whose room_players.player_order is 1 (the room creator/host).
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -35,27 +35,57 @@ drop policy if exists "Authenticated users can read media library" on public.med
 create policy "Authenticated users can read media library"
 on public.media_library for select to authenticated using (true);
 
+-- The room creator is player_order = 1 in the existing create_room/join_room flow.
+-- A user who is not currently the creator of a room cannot mutate the global library.
+create or replace function public.is_anime_party_room_host()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, auth
+as $
+  select auth.uid() is not null and exists (
+    select 1
+    from public.room_players rp
+    join public.game_rooms gr on gr.id = rp.room_id
+    where rp.user_id = auth.uid()
+      and rp.player_order = 1
+      and gr.status in ('lobby','playing')
+  );
+$;
+
+revoke all on function public.is_anime_party_room_host() from public;
+grant execute on function public.is_anime_party_room_host() to authenticated;
+
 drop policy if exists "Authenticated users can add media library items" on public.media_library;
-create policy "Authenticated users can add media library items"
-on public.media_library for insert to authenticated with check (created_by = auth.uid());
+drop policy if exists "Room hosts can add media library items" on public.media_library;
+create policy "Room hosts can add media library items"
+on public.media_library for insert to authenticated
+with check (created_by = auth.uid() and public.is_anime_party_room_host());
 
 drop policy if exists "Uploader can update media library items" on public.media_library;
-create policy "Uploader can update media library items"
+drop policy if exists "Room hosts can update media library items" on public.media_library;
+create policy "Room hosts can update media library items"
 on public.media_library for update to authenticated
-using (created_by = auth.uid()) with check (created_by = auth.uid());
+using (public.is_anime_party_room_host()) with check (public.is_anime_party_room_host());
 
 drop policy if exists "Uploader can delete media library items" on public.media_library;
-create policy "Uploader can delete media library items"
-on public.media_library for delete to authenticated using (created_by = auth.uid());
+drop policy if exists "Room hosts can delete media library items" on public.media_library;
+create policy "Room hosts can delete media library items"
+on public.media_library for delete to authenticated using (public.is_anime_party_room_host());
 
 drop policy if exists "Authenticated users can read shared media files" on storage.objects;
 create policy "Authenticated users can read shared media files"
 on storage.objects for select to authenticated using (bucket_id = 'anime-party-media');
 
 drop policy if exists "Authenticated users can upload shared media files" on storage.objects;
-create policy "Authenticated users can upload shared media files"
-on storage.objects for insert to authenticated with check (bucket_id = 'anime-party-media');
+drop policy if exists "Room hosts can upload shared media files" on storage.objects;
+create policy "Room hosts can upload shared media files"
+on storage.objects for insert to authenticated
+with check (bucket_id = 'anime-party-media' and public.is_anime_party_room_host());
 
 drop policy if exists "Authenticated users can delete shared media files" on storage.objects;
-create policy "Authenticated users can delete shared media files"
-on storage.objects for delete to authenticated using (bucket_id = 'anime-party-media');
+drop policy if exists "Room hosts can delete shared media files" on storage.objects;
+create policy "Room hosts can delete shared media files"
+on storage.objects for delete to authenticated
+using (bucket_id = 'anime-party-media' and public.is_anime_party_room_host());
