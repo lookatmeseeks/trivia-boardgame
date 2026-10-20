@@ -4,7 +4,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
  let entry;
  try{
   if(mode==="soundtrack-clip"||mode==="opening-clip"){
-   entry=await fetchRandomYoutubeMedia(mode);
+   entry=await fetchRandomMedia(mode);
   }else if(mode==="easy"||mode==="random"||["anime-cover","anime-character","anime-fanart"].includes(mode)){
    entry=await fetchRandomEasyImage(mode);
   }else if(mode==="medium"||mode==="manga-panel"){
@@ -13,7 +13,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
    throw new Error("This event does not have a question provider implemented yet.");
   }
   challengeAnswer=entry.title;
-  if(entry.videoId){media.innerHTML='<div class="note">Loading YouTube clip…</div>'}else{
+  if(entry.mediaUrl){media.innerHTML='<div class="note">Loading media file…</div>'}else{
    const img=document.createElement("img");img.alt=entry.label;img.src=entry.url;
    img.onload=()=>{media.replaceChildren(img)};
    img.onerror=()=>{
@@ -68,23 +68,24 @@ function mpRenderSharedChallenge(challenge){
  document.querySelector("#challenge-title").textContent=challenge.type==="manga-panel"?"Which manga is this panel from?":challenge.type==="soundtrack-clip"?"Which anime is this soundtrack from?":challenge.type==="opening-clip"?"Which anime is this opening from?":"Which anime is this from?";
  const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art","manga-panel":"Manga panel","soundtrack-clip":"Soundtrack clip (audio only)","opening-clip":"Opening clip (audio + video)"};
  document.querySelector("#challenge-instructions").textContent=(typeNames[challenge.type]||"Anime clue")+" event";
- if(challenge.mediaType==="youtube"&&challenge.videoId){
-  const mediaKey=challenge.videoId+"|"+challenge.startSeconds+"|"+challenge.clipEndsAt;
+ if(challenge.mediaType==="file"&&challenge.mediaUrl){
+  const mediaKey=challenge.mediaUrl+"|"+challenge.startSeconds+"|"+challenge.clipEndsAt;
   if(media.dataset.mediaKey!==mediaKey){
    media.dataset.mediaKey=mediaKey;media.dataset.imageUrl="";media.innerHTML="";
-   const wrap=document.createElement("div");wrap.className="youtube-player-wrap";
-   const iframe=document.createElement("iframe");iframe.id="challenge-youtube-player";iframe.title=challenge.type==="soundtrack-clip"?"Censored soundtrack audio player":"Anime opening video";
-   const start=Math.max(0,Number(challenge.startSeconds)||0),end=start+Math.max(1,Number(challenge.durationSeconds)||15);
-   const params=new URLSearchParams({autoplay:"1",controls:challenge.type==="soundtrack-clip"?"0":"1",start:String(start),end:String(end),playsinline:"1",rel:"0",enablejsapi:"1",origin:window.location.origin});
-   iframe.src="https://www.youtube-nocookie.com/embed/"+encodeURIComponent(challenge.videoId)+"?"+params.toString();
-   iframe.allow="autoplay; encrypted-media; picture-in-picture";iframe.allowFullscreen=true;iframe.referrerPolicy="strict-origin-when-cross-origin";
-   wrap.append(iframe);
    if(challenge.type==="soundtrack-clip"){
-    const censor=document.createElement("div");censor.className="youtube-censor";
-    const startButton=document.createElement("button");startButton.type="button";startButton.textContent="Start soundtrack";startButton.addEventListener("click",()=>{try{iframe.contentWindow.postMessage(JSON.stringify({event:"command",func:"playVideo",args:""}),"https://www.youtube-nocookie.com");startButton.textContent="Soundtrack playing";startButton.disabled=true}catch(_){}});
-    censor.append(startButton);wrap.append(censor);
+    const wrap=document.createElement("div");wrap.className="local-audio-wrap";
+    const panel=document.createElement("div");panel.className="soundtrack-panel";panel.textContent="SOUNDTRACK CLIP";
+    const audio=document.createElement("audio");audio.id="challenge-local-audio";audio.preload="auto";audio.src=challenge.mediaUrl;
+    audio.addEventListener("loadedmetadata",()=>{try{audio.currentTime=Math.max(0,Number(challenge.startSeconds)||0)}catch(_){}});
+    const startButton=document.createElement("button");startButton.type="button";startButton.className="primary";startButton.textContent="Start soundtrack";
+    startButton.addEventListener("click",async()=>{try{if(audio.currentTime<(Number(challenge.startSeconds)||0))audio.currentTime=Number(challenge.startSeconds)||0;await audio.play();startButton.textContent="Soundtrack playing";startButton.disabled=true}catch(error){startButton.textContent="Playback blocked — try again"}});
+    wrap.append(panel,audio,startButton);media.append(wrap);
+   }else{
+    const video=document.createElement("video");video.id="challenge-local-video";video.controls=true;video.playsInline=true;video.preload="auto";video.src=challenge.mediaUrl;
+    video.addEventListener("loadedmetadata",()=>{try{video.currentTime=Math.max(0,Number(challenge.startSeconds)||0);const p=video.play();if(p&&p.catch)p.catch(()=>{})}catch(_){}});
+    video.onerror=()=>{media.textContent="The opening video could not be loaded. Check that its public URL is valid and the file format is browser-compatible."};
+    media.append(video);
    }
-   media.append(wrap);
   }
   const timer=document.querySelector("#challenge-media-timer");
   if(timer)timer.textContent="Clip length: 15 seconds.";
@@ -92,10 +93,10 @@ function mpRenderSharedChallenge(challenge){
    window.__animePartyMediaTimer=window.setInterval(()=>{
     const active=typeof mpChallenge!=="undefined"?mpChallenge:null;
     const timerEl=document.querySelector("#challenge-media-timer");
-    if(!active||active.mediaType!=="youtube"||!active.clipEndsAt){if(timerEl)timerEl.textContent="";return}
+    if(!active||active.mediaType!=="file"||!active.clipEndsAt){if(timerEl)timerEl.textContent="";return}
     const left=Math.max(0,Math.ceil((active.clipEndsAt-Date.now())/1000));
     if(timerEl)timerEl.textContent=left>0?"Clip ends in "+left+" second"+(left===1?"":"s")+".":"Clip ended.";
-    if(left===0){const player=document.querySelector("#challenge-youtube-player");if(player&&player.src!=="about:blank"){player.src="about:blank";const censor=document.querySelector(".youtube-censor");if(censor)censor.remove()}}
+    if(left===0){const audio=document.querySelector("#challenge-local-audio"),video=document.querySelector("#challenge-local-video");if(audio){audio.pause();audio.currentTime=0}if(video){video.pause();video.currentTime=0}}
    },250);
   }
  }else if(media.dataset.imageUrl!==challenge.imageUrl){media.dataset.mediaKey="";media.dataset.imageUrl=challenge.imageUrl;media.innerHTML="";const img=document.createElement("img");img.alt=challenge.imageLabel||"Anime clue";img.src=challenge.imageUrl;img.onerror=()=>{media.textContent="The clue image could not be loaded."};media.appendChild(img)}
