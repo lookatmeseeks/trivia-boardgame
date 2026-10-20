@@ -140,8 +140,11 @@ function mpRenderSharedChallenge(challenge){
   if(alreadyAnswered)answerInput.value="";
   if(challengeTimerInterval){clearInterval(challengeTimerInterval);challengeTimerInterval=null}
   const updateTimer=()=>{
-   const seconds=Math.max(0,Math.ceil((Number(challenge.answerDeadline||0)-Date.now())/1000));
+   const submitted=(challenge.answeredUserIds||[]).length;
+   const everyoneAnswered=players.length>0&&submitted>=players.length;
+   const seconds=everyoneAnswered?0:Math.max(0,Math.ceil((Number(challenge.answerDeadline||0)-Date.now())/1000));
    timer.textContent=resolved?"Answer time ended":seconds+" second"+(seconds===1?"":"s")+" remaining";
+   if(everyoneAnswered&&!resolved)msg.textContent="Everyone has submitted. Revealing answers…";
    if(seconds<=0&&!resolved&&!challengeResolveRequested){
     challengeResolveRequested=true;
     mpResolveTriviaAnswers().catch(error=>{challengeResolveRequested=false;msg.textContent="Could not reveal answers: "+(error.message||error)});
