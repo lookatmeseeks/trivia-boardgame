@@ -43,6 +43,8 @@
   <select id="preset-media-mode" style="width:100%;margin-top:4px"><option value="audio">Audio clip</option><option value="video" selected>Video clip</option><option value="still">Still frame from video</option></select>
   <label class="note" for="preset-clip-duration" style="display:block;margin-top:8px">Clip duration (seconds, 3–60)</label>
   <input id="preset-clip-duration" type="number" min="3" max="60" value="15">
+  <label class="note" for="preset-scoring-notes" style="display:block;margin-top:8px">Scoring criteria (plain text; not automatically checked)</label>
+  <textarea id="preset-scoring-notes" rows="3" maxlength="2000" placeholder="e.g. 1 point for naming the show; 1 point for naming the arc." style="width:100%;margin-top:4px"></textarea>
   <div class="note" style="margin-top:10px">Events allowed on this preset</div>
   <div id="preset-events" style="display:grid;gap:4px;margin:6px 0 10px"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -87,7 +89,8 @@
   <div class="challenge-answers" id="challenge-answers"></div>
   <div class="status" id="challenge-status" aria-live="polite">Searching for an image.</div>
   <div class="challenge-meta" id="challenge-source"></div>
-  <button class="secondary" id="challenge-next" style="margin-top:12px;display:none">Search another image</button>
+  <button class="secondary" id="challenge-next" style="margin-top:12px;display:none">Continue turn</button>
+  <button class="secondary" id="challenge-stop" style="margin-top:8px">Stop event</button>
  </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
