@@ -37,9 +37,11 @@
      <label class="note" for="preset-color">Tile color</label>
      <input id="preset-color" type="color" value="#69df9b" style="width:100%;height:42px;margin-top:4px;background:#111521;border:1px solid #424a65;border-radius:9px">
      <label class="note" for="preset-media-mode">Shared media presentation</label>
-     <select id="preset-media-mode"><option value="audio">Audio clip</option><option value="video" selected>Video clip</option><option value="still">Still frame from video</option></select>
+     <select id="preset-media-mode"><option value="audio">Audio clip</option><option value="video" selected>Video clip</option></select>
      <label class="note" for="preset-clip-duration">Clip duration (seconds, 3–60)</label>
      <input id="preset-clip-duration" type="number" min="3" max="60" value="15">
+     <label class="note" for="preset-answer-seconds">Answer time (seconds, 10–180)</label>
+     <input id="preset-answer-seconds" type="number" min="10" max="180" value="30">
      <label class="note" for="preset-scoring-notes">Scoring criteria (plain text; not automatically checked)</label>
      <textarea id="preset-scoring-notes" rows="3" maxlength="2000" placeholder="e.g. 1 point for naming the show; 1 point for naming the arc."></textarea>
      <div class="note">Events allowed on this preset</div>
@@ -105,6 +107,12 @@
   <div class="eyebrow">Anime Party challenge</div><h2 id="challenge-title">Which anime or manga is this from?</h2>
   <div class="note" id="challenge-instructions">Picking a random Easy clue: anime cover, anime character, or anime fan art…</div>
   <div class="challenge-media" id="challenge-media"><div class="note">Searching…</div></div>
+  <div class="challenge-timer" id="challenge-timer" aria-live="polite" style="display:none">30 seconds remaining</div>
+  <div id="challenge-answer-entry" style="display:none;margin:12px 0">
+   <label class="note" for="challenge-answer-input">Your answer</label>
+   <textarea id="challenge-answer-input" rows="2" maxlength="500" placeholder="Write your answer here"></textarea>
+   <button class="primary" id="challenge-answer-submit" type="button" style="width:100%;margin-top:8px">Submit answer</button>
+  </div>
   <div class="challenge-answers" id="challenge-answers"></div>
   <div class="status" id="challenge-status" aria-live="polite">Searching for an image.</div>
   <div class="challenge-meta" id="challenge-source"></div>
