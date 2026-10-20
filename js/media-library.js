@@ -27,6 +27,10 @@ function mediaLibraryRender() {
   const canManage = mediaLibraryCanManage();
   [upload, file, title, answer].forEach(el => { if (el) el.disabled = !canManage; });
   list.innerHTML = "";
+  if (!canManage && mpRoomId) {
+    list.innerHTML = '<div class="note">The shared media library is hidden from players to prevent answer spoilers.</div>';
+    return;
+  }
   if (!mediaLibraryItems.length) {
     list.innerHTML = '<div class="note">No media uploaded yet.</div>';
     return;
