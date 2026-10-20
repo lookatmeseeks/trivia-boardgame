@@ -85,40 +85,11 @@ async function fetchRandomEasyImage(eventId="random"){
 }
 
 
-async function invokeYoutubeMediaFunction(body){
- if(typeof mpClient==="undefined"||!mpClient)throw new Error("Connect to an online room before requesting YouTube data.");
- const functionName=(window.ANIME_PARTY_SUPABASE&&window.ANIME_PARTY_SUPABASE.youtubeFunction)||"youtube-media";
- const {data,error}=await mpClient.functions.invoke(functionName,{body});
- if(error){
-  let detail=error.message||String(error);
-  try{const context=error.context;if(context&&typeof context.clone==="function"){const response=context.clone();let payload=null;try{payload=await response.json()}catch(_){}if(payload&&payload.error)detail=payload.error;else if(response.status)detail+=" (HTTP "+response.status+")"}}catch(_){}
-  throw new Error(detail);
- }
- if(!data||data.error)throw new Error(data&&data.error?data.error:"YouTube media service returned an empty response.");
- return data;
-}
-async function searchYoutubeMedia(query,eventType){
- const data=await invokeYoutubeMediaFunction({action:"search",query:String(query||"").trim(),eventType});
- return Array.isArray(data.videos)?data.videos.filter(item=>item&&item.videoId&&item.url&&item.title):[];
-}
-async function fetchRandomYoutubeMedia(eventType){
- const approved=(Array.isArray(youtubeMediaPool)?youtubeMediaPool:[]).filter(item=>item.approved&&item.eventType===eventType);
- if(approved.length&&Math.random()<0.8){
-  const item=approved[Math.floor(Math.random()*approved.length)];
-  return {title:item.answer,url:"https://i.ytimg.com/vi/"+item.videoId+"/hqdefault.jpg",type:eventType,difficulty:2,label:eventType==="opening-clip"?"Opening clip":"Soundtrack clip",sourceUrl:item.videoUrl||("https://www.youtube.com/watch?v="+item.videoId),videoId:item.videoId,videoTitle:item.videoTitle||"",startSeconds:item.startSeconds||0};
- }
- try{
-  const data=await invokeYoutubeMediaFunction({action:"random",eventType});
-  const video=data.video;
-  if(!video||!video.videoId||!video.answer)throw new Error("YouTube discovery returned an incomplete candidate.");
-  return {title:video.answer,url:"https://i.ytimg.com/vi/"+video.videoId+"/hqdefault.jpg",type:eventType,difficulty:2,label:eventType==="opening-clip"?"Opening clip":"Soundtrack clip",sourceUrl:video.url||("https://www.youtube.com/watch?v="+video.videoId),videoId:video.videoId,videoTitle:video.title||"",startSeconds:Math.max(0,Number(video.startSeconds)||0)};
- }catch(error){
-  if(approved.length){
-   const item=approved[Math.floor(Math.random()*approved.length)];
-   return {title:item.answer,url:"https://i.ytimg.com/vi/"+item.videoId+"/hqdefault.jpg",type:eventType,difficulty:2,label:eventType==="opening-clip"?"Opening clip":"Soundtrack clip",sourceUrl:item.videoUrl||("https://www.youtube.com/watch?v="+item.videoId),videoId:item.videoId,videoTitle:item.videoTitle||"",startSeconds:item.startSeconds||0};
-  }
-  throw error;
- }
+async function fetchRandomMedia(eventType){
+ const available=(Array.isArray(mediaPool)?mediaPool:[]).filter(item=>item.approved&&item.eventType===eventType&&item.mediaUrl&&item.answer);
+ if(!available.length)throw new Error("No "+(eventType==="opening-clip"?"opening videos":"soundtrack audio files")+" are in the media catalogue. Add a file URL or import your catalogue in Host setup.");
+ const item=available[Math.floor(Math.random()*available.length)];
+ return {title:item.answer,url:item.mediaUrl,mediaUrl:item.mediaUrl,mediaKind:eventType==="soundtrack-clip"?"audio":"video",type:eventType,difficulty:2,label:eventType==="opening-clip"?"Opening clip":"Soundtrack clip",sourceUrl:item.mediaUrl,startSeconds:item.startSeconds||0};
 }
 
 async function invokeMangaFunction(body){
