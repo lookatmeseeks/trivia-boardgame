@@ -55,8 +55,7 @@ function buildBoardGraph(requestedSize=boardSize){
  nodes.sort((a,b)=>a.id-b.id);
  return {nodes,edges,adjacency,starts:uniqueStarts};
 }
-let startNodeIds=[];
-({nodes,edges,adjacency,startNodeIds}=(()=>{const graph=(()=>{buildBoardGraph(boardSize);return {nodes,edges,adjacency,starts:nodes.filter(n=>n.type==="start").map(n=>n.id)}})();return graph})());
+buildBoardGraph(boardSize);
 const colors=["#ff5da8","#66e3ef","#ffd166","#a78bfa"];
 let players=[],current=0,remaining=0,moving=false,turnStarted=false,gameOver=false,challengeResolved=false,challengeBusy=false,challengeAnswer="";
 const svg=document.querySelector("#board"),statusEl=document.querySelector("#status"),choicesEl=document.querySelector("#choices");
