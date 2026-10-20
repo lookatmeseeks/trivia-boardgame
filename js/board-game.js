@@ -41,7 +41,7 @@ function updateSetupUI(){
  const editable=!mpRoomId||mpIsHost;panel.style.display=editable?"block":"none";
  document.querySelector("#add-round").style.display=mpRoomId?(mpIsHost&&mpRoomStatus==="playing"?"block":"none"):(setupMode?"none":"block");
  document.querySelector("#round-limit").disabled=!canEditBoard();
- ["randomize-board","clear-board","preset-name","preset-color","preset-media-mode","preset-clip-duration","preset-scoring-notes","preset-save","preset-cancel"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
+ ["randomize-board","clear-board","preset-name","preset-color","preset-answer-mode","preset-media-mode","preset-clip-duration","preset-scoring-notes","preset-save","preset-cancel"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
  document.querySelector("#round-limit").value=roundLimit;
  const authorInput=document.querySelector("#medium-author-search"),searchButton=document.querySelector("#medium-author-search-button");if(authorInput)authorInput.disabled=!canEditBoard();if(searchButton)searchButton.disabled=!canEditBoard();renderMediumAuthorSelections();renderPresetEditor();
  document.querySelector("#setup-status").textContent=setupMode?"Create presets, choose their events, then assign presets to board tiles.":"Round "+Math.min(roundsCompleted+1,roundLimit)+" of "+roundLimit+" · "+roundsCompleted+" completed.";
@@ -59,7 +59,7 @@ function renderPresetEditor(){
   const swatch=document.createElement("span");swatch.style.cssText="width:12px;height:28px;border-radius:5px;background:"+preset.color;
   const detail=document.createElement("div");detail.style.minWidth="0";
   const title=document.createElement("strong");title.textContent=preset.name;
-  const summary=document.createElement("div");summary.className="note";summary.textContent=preset.events.map(id=>getTileEventDefinition(id)?.name||id).join(", ")||"No events selected";
+  const summary=document.createElement("div");summary.className="note";summary.textContent=preset.events.map(id=>getTileEventDefinition(id)?.name||id).join(", ")||"No events selected";summary.textContent+=" · "+(preset.answerMode==="manual"?"Free text + host scoring":"Multiple choice");
   detail.append(title,summary);
   const edit=document.createElement("button");edit.type="button";edit.className="secondary";edit.style.width="auto";edit.textContent="Edit";edit.disabled=!canEditBoard();edit.addEventListener("click",()=>loadPresetForEdit(preset.id));
   const remove=document.createElement("button");remove.type="button";remove.className="secondary";remove.style.width="auto";remove.textContent="×";remove.title="Delete preset";remove.disabled=!canEditBoard();remove.addEventListener("click",()=>{if(!canEditBoard())return;tilePresets=tilePresets.filter(p=>p.id!==preset.id);Object.keys(tileTypes).forEach(key=>{if(tileTypes[key]===preset.id)delete tileTypes[key]});if(editingPresetId===preset.id)clearPresetForm();renderBoard();renderPresetEditor();if(typeof mpStateChanged==="function")mpStateChanged()});
@@ -75,16 +75,17 @@ function renderPresetEditor(){
  if(save)save.textContent=editingPresetId?"Update preset":"Save preset";
  if(nameInput)nameInput.disabled=!canEditBoard();if(colorInput)colorInput.disabled=!canEditBoard();
 }
-function clearPresetForm(){editingPresetId=null;document.querySelector("#preset-name").value="";document.querySelector("#preset-color").value="#69df9b";document.querySelector("#preset-media-mode").value="video";document.querySelector("#preset-clip-duration").value="15";document.querySelector("#preset-answer-seconds").value="30";document.querySelector("#preset-scoring-notes").value="";document.querySelectorAll("[data-preset-event]").forEach(el=>el.checked=false);renderPresetEditor()}
+function clearPresetForm(){editingPresetId=null;document.querySelector("#preset-name").value="";document.querySelector("#preset-color").value="#69df9b";document.querySelector("#preset-answer-mode").value="multiple-choice";document.querySelector("#preset-media-mode").value="video";document.querySelector("#preset-clip-duration").value="15";document.querySelector("#preset-answer-seconds").value="30";document.querySelector("#preset-scoring-notes").value="";document.querySelectorAll("[data-preset-event]").forEach(el=>el.checked=false);renderPresetEditor()}
 function loadPresetForEdit(id){
  const preset=getTilePreset(id);if(!preset)return;editingPresetId=id;
- document.querySelector("#preset-name").value=preset.name;document.querySelector("#preset-color").value=preset.color;document.querySelector("#preset-media-mode").value=preset.mediaMode||"video";document.querySelector("#preset-clip-duration").value=String(preset.clipDuration||15);document.querySelector("#preset-answer-seconds").value=String(preset.answerSeconds||30);document.querySelector("#preset-scoring-notes").value=preset.scoringNotes||"";
+ document.querySelector("#preset-name").value=preset.name;document.querySelector("#preset-color").value=preset.color;document.querySelector("#preset-answer-mode").value=preset.answerMode==="manual"?"manual":"multiple-choice";document.querySelector("#preset-media-mode").value=preset.mediaMode||"video";document.querySelector("#preset-clip-duration").value=String(preset.clipDuration||15);document.querySelector("#preset-answer-seconds").value=String(preset.answerSeconds||30);document.querySelector("#preset-scoring-notes").value=preset.scoringNotes||"";
  document.querySelectorAll("[data-preset-event]").forEach(el=>el.checked=preset.events.includes(el.value));
  document.querySelector("#preset-save").textContent="Update preset";
 }
 function savePreset(){
  if(!canEditBoard())return;
  const name=document.querySelector("#preset-name").value.trim(),color=document.querySelector("#preset-color").value;
+ const answerMode=document.querySelector("#preset-answer-mode").value==="manual"?"manual":"multiple-choice";
  const mediaMode=document.querySelector("#preset-media-mode").value;
  const clipDuration=Math.max(3,Math.min(60,Number.parseInt(document.querySelector("#preset-clip-duration").value,10)||15));
  const answerSeconds=Math.max(10,Math.min(180,Number.parseInt(document.querySelector("#preset-answer-seconds").value,10)||30));
@@ -93,8 +94,8 @@ function savePreset(){
  if(!name){document.querySelector("#setup-status").textContent="Give the preset a name.";return}
  if(!events.length){document.querySelector("#setup-status").textContent="Select at least one event for this preset.";return}
  if(tilePresets.some(p=>p.name.toLowerCase()===name.toLowerCase()&&p.id!==editingPresetId)){document.querySelector("#setup-status").textContent="Preset names must be unique.";return}
- if(editingPresetId){const preset=getTilePreset(editingPresetId);if(preset)Object.assign(preset,{name,color,events,mediaMode,clipDuration,answerSeconds,scoringNotes})}
- else tilePresets.push({id:"preset-"+(presetSequence++),name,color,events,mediaMode,clipDuration,answerSeconds,scoringNotes});
+ if(editingPresetId){const preset=getTilePreset(editingPresetId);if(preset)Object.assign(preset,{name,color,events,answerMode,mediaMode,clipDuration,answerSeconds,scoringNotes})}
+ else tilePresets.push({id:"preset-"+(presetSequence++),name,color,events,answerMode,mediaMode,clipDuration,answerSeconds,scoringNotes});
  clearPresetForm();renderBoard();if(typeof mpStateChanged==="function")mpStateChanged();
  document.querySelector("#setup-status").textContent="Preset saved. Click a board node to assign it.";
 }
