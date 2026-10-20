@@ -70,6 +70,7 @@ document.querySelector("#challenge-test").addEventListener("click",()=>{
 document.querySelector("#challenge-stop").addEventListener("click",stopTriviaChallenge);
 function stopTriviaChallenge(){
  if(!mpRoomId||(!mpCanAct()&&!mpIsHost))return;
+ if(challengeTimerInterval){clearInterval(challengeTimerInterval);challengeTimerInterval=null}
  challengeBusy=false;challengeResolved=true;mpChallenge=null;
  document.querySelector("#challenge-overlay").style.display="none";
  finishTurn();
@@ -99,7 +100,7 @@ function mpRenderSharedChallenge(challenge){
  if(challenge.type==="media-library"){
   const mediaKey=challenge.mediaUrl+":"+String(challenge.startedAt||"");
   if(media.dataset.mediaKey!==mediaKey){
-   media.dataset.mediaKey=mediaKey;media.dataset.mediaUrl=challenge.mediaUrl;media.dataset.imageUrl="";media.innerHTML="";
+   media.dataset.mediaKey=mediaKey;media.dataset.mediaUrl=challenge.mediaUrl;media.dataset.imageUrl="";media.innerHTML="";challengeResolveRequested=false;
    const player=document.createElement(challenge.mediaMode==="audio"?"audio":"video");
    player.src=challenge.mediaUrl;player.controls=false;player.preload="auto";player.playsInline=true;
    player.style.cssText="width:100%;max-height:360px;object-fit:contain;background:#000";
