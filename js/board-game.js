@@ -176,7 +176,7 @@ function renderBoard(){
  let s="";
  edges.forEach(([a,b])=>{let A=node(a),B=node(b);s+='<line class="edge" x1="'+A.x+'" y1="'+A.y+'" x2="'+B.x+'" y2="'+B.y+'"/><line class="edge-highlight" x1="'+A.x+'" y1="'+A.y+'" x2="'+B.x+'" y2="'+B.y+'"/>'});
  nodes.forEach(n=>{
-  const preset=getTilePreset(tileTypes[n.id]),editor=canEditBoard()&&n.id!==0&&n.id!==9;
+  const preset=getTilePreset(tileTypes[n.id]),editor=canEditBoard();
   const label=preset?(preset.name.length>9?preset.name.slice(0,8)+"…":preset.name):n.label;
   const fill=preset?escapeHTML(preset.color):null;
   const cls=preset?"tile preset-tile":n.type==="start"?"tile start":"tile";
