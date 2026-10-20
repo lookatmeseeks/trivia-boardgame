@@ -11,11 +11,8 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
    const candidates=mediaLibraryItems.filter(item=>item.media_type===wantedType);
    if(!candidates.length)throw new Error("The global library has no "+wantedType+" items. Upload one first.");
    const item=candidates[Math.floor(Math.random()*candidates.length)];
-   const answers=[...new Set(mediaLibraryItems.filter(x=>x.media_type===wantedType).map(x=>x.answer).filter(Boolean))];
-   const wrong=shuffle(answers.filter(answer=>answer.toLowerCase()!==item.answer.toLowerCase())).slice(0,3);
-   if(wrong.length<3)throw new Error("Add at least four distinct correct answers of this media type to the global library.");
    const mediaUrl=mediaLibraryPublicUrl(item.storage_path);
-   entry={title:item.answer,label:item.title,url:mediaUrl,mediaUrl,mediaType:item.media_type,mediaMode,durationSeconds:Math.max(3,Math.min(60,Number(preset?.clipDuration)||15)),type:"media-library",options:shuffle([item.answer,...wrong])};
+   entry={title:item.answer,label:item.title,url:mediaUrl,mediaUrl,mediaType:item.media_type,mediaMode,durationSeconds:Math.max(3,Math.min(60,Number(preset?.clipDuration)||15)),scoringNotes:typeof preset?.scoringNotes==="string"?preset.scoringNotes:"",type:"media-library",options:[]};
   }else if(mode==="easy"||mode==="random"||["anime-cover","anime-character","anime-fanart"].includes(mode)){
    entry=await fetchRandomEasyImage(mode);
   }else if(mode==="medium"||mode==="manga-panel"){
@@ -70,6 +67,14 @@ document.querySelector("#challenge-test").addEventListener("click",()=>{
  if(!mpCanAct()){document.querySelector("#challenge-overlay").style.display="flex";document.querySelector("#challenge-status").textContent="Only the active player can start a synchronized question.";return}
  startTriviaChallenge(document.querySelector("#challenge-mode").value);
 });
+document.querySelector("#challenge-stop").addEventListener("click",stopTriviaChallenge);
+function stopTriviaChallenge(){
+ if(!mpRoomId||(!mpCanAct()&&!mpIsHost))return;
+ challengeBusy=false;challengeResolved=true;mpChallenge=null;
+ document.querySelector("#challenge-overlay").style.display="none";
+ finishTurn();
+ if(typeof mpStateChanged==="function")mpStateChanged();
+}
 document.querySelector("#challenge-next").addEventListener("click",()=>{
  if(!mpRoomId||!mpChallenge||mpChallenge.status!=="resolved"||!mpCanAct())return;
  document.querySelector("#challenge-overlay").style.display="none";mpChallenge=null;challengeResolved=true;finishTurn();
@@ -78,9 +83,9 @@ function mpRenderSharedChallenge(challenge){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
  if(!challenge){overlay.style.display="none";return}
  overlay.style.display="flex";
- document.querySelector("#challenge-title").textContent=challenge.type==="media-library"?"Identify this audio or video":challenge.type==="manga-panel"?"Which manga is this panel from?":"Which anime is this from?";
+ document.querySelector("#challenge-title").textContent=challenge.type==="media-library"?"Media event":challenge.type==="manga-panel"?"Which manga is this panel from?":"Which anime is this from?";
  const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art","manga-panel":"Manga panel"};
- document.querySelector("#challenge-instructions").textContent=challenge.type==="media-library"?"Watch or listen to the clip, then choose the correct answer.":(typeNames[challenge.type]||"Anime clue")+" event";
+ document.querySelector("#challenge-instructions").textContent=challenge.type==="media-library"?(challenge.scoringNotes||"Watch or listen to the clip. The host judges answers manually; no automatic answer matching."):(typeNames[challenge.type]||"Anime clue")+" event";
  if(challenge.type==="media-library"){
   const mediaKey=challenge.mediaUrl+":"+String(challenge.startedAt||"");
   if(media.dataset.mediaKey!==mediaKey){
@@ -105,9 +110,11 @@ function mpRenderSharedChallenge(challenge){
   }
  }else if(media.dataset.imageUrl!==challenge.imageUrl){media.dataset.imageUrl=challenge.imageUrl;media.dataset.mediaUrl="";media.innerHTML="";const img=document.createElement("img");img.alt=challenge.imageLabel||"Anime clue";img.src=challenge.imageUrl;img.onerror=()=>{media.textContent="The clue image could not be loaded."};media.appendChild(img)}
  answers.innerHTML="";
+ const stopButton=document.querySelector("#challenge-stop");
+ stopButton.style.display=(!mpRoomId||mpCanAct()||mpIsHost)?"block":"none";
  const alreadyAnswered=typeof mpTriviaAnswered==="function"&&mpTriviaAnswered();
  const resolved=challenge.status==="resolved";
- (challenge.options||[]).forEach(option=>{const button=document.createElement("button");button.textContent=option;button.disabled=alreadyAnswered||resolved||challengeBusy;button.onclick=()=>resolveTriviaAnswer(option,button);answers.appendChild(button)});
+ if(challenge.type!=="media-library")(challenge.options||[]).forEach(option=>{const button=document.createElement("button");button.textContent=option;button.disabled=alreadyAnswered||resolved||challengeBusy;button.onclick=()=>resolveTriviaAnswer(option,button);answers.appendChild(button)});
  if(resolved){
   const correctIds=challenge.correctUserIds||[];
   msg.textContent=challenge.winnerName
@@ -120,6 +127,6 @@ function mpRenderSharedChallenge(challenge){
   else msg.textContent="Choose one answer. The first correct answer ends the question. ("+count+"/"+players.length+" answered)";
   next.style.display="none";
  }
- source.textContent=(challenge.imageLabel||"Anime clue")+(challenge.type==="media-library"?" · "+(Number(challenge.durationSeconds)||15)+" seconds":"")+(challenge.sourceCredit?" · Scanlation group: "+challenge.sourceCredit:"");
+ source.textContent=(challenge.type==="media-library"?"":(challenge.imageLabel||"Anime clue"))+(challenge.type==="media-library"?" · "+(Number(challenge.durationSeconds)||15)+" seconds":"")+(challenge.sourceCredit?" · Scanlation group: "+challenge.sourceCredit:"");
  if(challenge.sourceUrl){const link=document.createElement("a");link.href=challenge.sourceUrl;link.target="_blank";link.rel="noopener";link.textContent=" View source";link.style.color="#66e3ef";source.appendChild(link)}
 }
