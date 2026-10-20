@@ -92,7 +92,7 @@ document.querySelector("#challenge-answer-submit").addEventListener("click",asyn
 let challengeTimerInterval=null,challengeResolveRequested=false;
 function mpRenderSharedChallenge(challenge){
  const overlay=document.querySelector("#challenge-overlay"),media=document.querySelector("#challenge-media"),answers=document.querySelector("#challenge-answers"),msg=document.querySelector("#challenge-status"),source=document.querySelector("#challenge-source"),next=document.querySelector("#challenge-next");
- if(!challenge){overlay.style.display="none";return}
+ if(!challenge){overlay.style.display="none";if(challengeTimerInterval){clearInterval(challengeTimerInterval);challengeTimerInterval=null}challengeResolveRequested=false;return}
  overlay.style.display="flex";
  document.querySelector("#challenge-title").textContent=challenge.type==="media-library"?"Media event":challenge.type==="manga-panel"?"Which manga is this panel from?":"Which anime is this from?";
  const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art","manga-panel":"Manga panel"};
@@ -103,14 +103,14 @@ function mpRenderSharedChallenge(challenge){
    media.dataset.mediaKey=mediaKey;media.dataset.mediaUrl=challenge.mediaUrl;media.dataset.imageUrl="";media.innerHTML="";challengeResolveRequested=false;
    const player=document.createElement(challenge.mediaMode==="audio"?"audio":"video");
    player.src=challenge.mediaUrl;player.controls=false;player.preload="auto";player.playsInline=true;
-   player.style.cssText="width:100%;max-height:360px;object-fit:contain;background:#000";
+   player.style.cssText="width:100%;max-height:360px;object-fit:contain;background:#000"+(challenge.mediaMode==="audio"?"":";visibility:hidden");
    player.addEventListener("canplay",()=>{
     const duration=Math.max(3,Math.min(60,Number(challenge.durationSeconds)||15));
     const elapsed=Math.max(0,(Date.now()-(Number(challenge.startedAt)||Date.now()))/1000);
     if(elapsed>=duration){msg.textContent="Clip ended. Submit your answer before time runs out.";return}
     try{player.currentTime=Math.min(elapsed,Math.max(0,player.duration-0.1))}catch{}
-    player.play().catch(()=>{msg.textContent="Your browser blocked autoplay. Use the play control to hear or watch the clip.";player.controls=true});
-    setTimeout(()=>{try{player.pause();if(challenge.mediaMode==="video")player.currentTime=0}catch{}},Math.max(0,duration-elapsed)*1000);
+    player.play().then(()=>{player.style.visibility="visible"}).catch(()=>{msg.textContent="Your browser blocked autoplay. Use the play control to hear or watch the clip.";player.controls=true;player.style.visibility="visible"});
+    setTimeout(()=>{try{player.pause();if(challenge.mediaMode==="video")player.style.visibility="hidden"}catch{}},Math.max(0,duration-elapsed)*1000);
    },{once:true});
    media.appendChild(player);
   }
