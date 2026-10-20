@@ -1,7 +1,7 @@
 -- Global Anime Party media library.
 -- Run this in the Supabase SQL Editor before using the library UI.
 -- Files are public-read so every player in every room can play them.
--- Upload/delete is restricted in SQL to users whose room_players.player_order is 1 (the room creator/host).
+-- Upload/delete is restricted in SQL to the user recorded as game_rooms.host_id.
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -35,8 +35,7 @@ drop policy if exists "Authenticated users can read media library" on public.med
 create policy "Authenticated users can read media library"
 on public.media_library for select to authenticated using (true);
 
--- The room creator is player_order = 1 in the existing create_room/join_room flow.
--- A user who is not currently the creator of a room cannot mutate the global library.
+-- Use the explicit game_rooms.host_id field for authorization rather than assuming player_order identifies the host.
 create or replace function public.is_anime_party_room_host()
 returns boolean
 language sql
@@ -49,7 +48,7 @@ as $function$
     from public.room_players rp
     join public.game_rooms gr on gr.id = rp.room_id
     where rp.user_id = auth.uid()
-      and rp.player_order = 1
+      and gr.host_id = auth.uid()
       and gr.status in ('lobby','playing')
   );
 $function$;
