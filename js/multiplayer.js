@@ -21,7 +21,7 @@ async function mpEnsureClient(){
  }
 }
 function mpCurrentSnapshot(){
- return {updatedBy:mpUserId,mediumAuthors:typeof getMediumAuthors==="function"?getMediumAuthors():[],mediumAuthorSelections:typeof getMediumAuthorIds==="function"?mediumAuthorSelections.map(a=>({id:a.id,name:a.name})):[],tilePresets:typeof tilePresets!=="undefined"?tilePresets:[],presetSequence:typeof presetSequence!=="undefined"?presetSequence:1,players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—",challenge:mpChallenge,tileTypes,roundLimit,roundsCompleted};
+ return {updatedBy:mpUserId,boardSize:typeof boardSize!=="undefined"?boardSize:30,mediumAuthors:typeof getMediumAuthors==="function"?getMediumAuthors():[],mediumAuthorSelections:typeof getMediumAuthorIds==="function"?mediumAuthorSelections.map(a=>({id:a.id,name:a.name})):[],tilePresets:typeof tilePresets!=="undefined"?tilePresets:[],presetSequence:typeof presetSequence!=="undefined"?presetSequence:1,players:players.map(p=>({name:p.name,pos:p.pos,previous:p.previous,score:p.score,userId:p.userId||null})),current,remaining,moving:false,gameOver,die:document.querySelector("#die")?.textContent||"—",challenge:mpChallenge,tileTypes,roundLimit,roundsCompleted};
 }
 function mpStateChanged(){
  if(!mpRoomId||mpApplyingState||mpRoomStatus!=="playing")return;
@@ -63,6 +63,7 @@ function mpApplySnapshot(state){
  if(!Array.isArray(state.players)||!state.players.length)return;
  mpApplyingState=true;
  try{
+  if(Number.isFinite(Number(state.boardSize))&&Number(state.boardSize)>=18&&Number(state.boardSize)<=72){boardSize=Number(state.boardSize);buildBoardGraph(boardSize)}
   players=state.players.map(p=>({name:p.name,pos:Number(p.pos)||0,previous:p.previous===null?null:Number(p.previous),score:Number(p.score)||0,userId:p.userId||p.user_id||null}));
   current=Math.max(0,Math.min(players.length-1,Number(state.current)||0));
   remaining=Math.max(0,Number(state.remaining)||0);
@@ -77,7 +78,7 @@ function mpApplySnapshot(state){
   document.querySelector("#die").textContent=state.die||"—";
   choicesEl.innerHTML="";
   renderBoard();updateUI();updateSetupUI();
-  setStatus(mpChallenge?"Trivia challenge in progress.":(gameOver?"Game finished.":(mpCanAct()?"Your turn. Roll or continue your move.":players[current].name+"'s turn. Waiting for them to move.")));
+  setStatus(mpChallenge?"Trivia challenge in progress.":(gameOver?(()=>{const highScore=Math.max(...players.map(player=>player.score));const winners=players.filter(player=>player.score===highScore).map(player=>player.name);return "All "+roundLimit+" rounds are over. "+(winners.length===1?"Winner: "+winners[0]+" with "+highScore+" points.":"Tie: "+winners.join(" and ")+" with "+highScore+" points each.")+" Final scores: "+players.map(player=>player.name+" "+player.score).join(", ")+ "."})():(mpCanAct()?"Your turn. Roll or continue your move.":players[current].name+"'s turn. Waiting for them to move.")));
   if(mpChallenge&&typeof mpRenderSharedChallenge==="function")mpRenderSharedChallenge(mpChallenge);
   else if(!mpChallenge){document.querySelector("#challenge-overlay").style.display="none";}
   document.querySelector("#roll").disabled=!mpCanAct()||remaining>0||moving||gameOver||!!mpChallenge;
@@ -133,6 +134,9 @@ async function mpStartGame(){
   await mpRefreshPlayers();
   if(mpPlayerRows.length<2){mpSetStatus("At least two players must join before starting.");return}
   players=mpPlayerRows.map(p=>({name:p.player_name,pos:0,previous:null,score:0,userId:p.user_id}));
+  const startIds=nodes.filter(n=>n.type==="start").map(n=>n.id);
+  const shuffledStarts=startIds.slice().sort(()=>Math.random()-0.5);
+  players.forEach((player,index)=>{player.pos=shuffledStarts[index%shuffledStarts.length];player.previous=null});
   current=0;remaining=0;moving=false;gameOver=false;challengeResolved=false;mpChallenge=null;
   roundLimit=Math.max(1,Math.min(50,Number.parseInt(document.querySelector("#round-limit").value,10)||5));roundsCompleted=0;setupMode=false;
   document.querySelector("#die").textContent="—";
