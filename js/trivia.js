@@ -108,7 +108,15 @@ function mpRenderSharedChallenge(challenge){
     const duration=Math.max(3,Math.min(60,Number(challenge.durationSeconds)||15));
     const elapsed=Math.max(0,(Date.now()-(Number(challenge.startedAt)||Date.now()))/1000);
     if(elapsed>=duration){msg.textContent="Clip ended. Submit your answer before time runs out.";return}
-    try{player.currentTime=Math.min(elapsed,Math.max(0,player.duration-0.1))}catch{}
+    // Derive the same segment offset on every client from the shared media URL and event start time.
+    // This avoids needing a separate metadata lookup while keeping playback aligned across players.
+    let seed=0;
+    const seedText=String(challenge.mediaUrl)+":"+String(challenge.startedAt||"");
+    for(let i=0;i<seedText.length;i++)seed=(Math.imul(seed,31)+seedText.charCodeAt(i))>>>0;
+    const maxStart=Math.max(0,player.duration-duration);
+    const segmentStart=maxStart>0?(seed/4294967295)*maxStart:0;
+    const playhead=Math.min(segmentStart+elapsed,Math.max(0,player.duration-0.1));
+    try{player.currentTime=playhead}catch{}
     player.play().then(()=>{player.style.visibility="visible"}).catch(()=>{msg.textContent="Your browser blocked autoplay. Use the play control to hear or watch the clip.";player.controls=true;player.style.visibility="visible"});
     setTimeout(()=>{try{player.pause();if(challenge.mediaMode==="video")player.style.visibility="hidden"}catch{}},Math.max(0,duration-elapsed)*1000);
    },{once:true});
