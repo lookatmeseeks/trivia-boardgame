@@ -12,7 +12,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
    if(!candidates.length)throw new Error("The global library has no "+wantedType+" items. Upload one first.");
    const item=candidates[Math.floor(Math.random()*candidates.length)];
    const mediaUrl=mediaLibraryPublicUrl(item.storage_path);
-   entry={title:item.answer,label:item.title,url:mediaUrl,mediaUrl,mediaType:item.media_type,mediaMode,durationSeconds:Math.max(3,Math.min(60,Number(preset?.clipDuration)||15)),answerSeconds:Math.max(10,Math.min(180,Number(preset?.answerSeconds)||30)),scoringNotes:typeof preset?.scoringNotes==="string"?preset.scoringNotes:"",type:"media-library",options:[]};
+   entry={title:item.answer,label:item.title,url:mediaUrl,mediaUrl,mediaType:item.media_type,mediaMode,answerMode:"manual",durationSeconds:Math.max(3,Math.min(60,Number(preset?.clipDuration)||15)),answerSeconds:Math.max(10,Math.min(180,Number(preset?.answerSeconds)||30)),scoringNotes:typeof preset?.scoringNotes==="string"?preset.scoringNotes:"",type:"media-library",options:[]};
   }else if(mode==="easy"||mode==="random"||["anime-cover","anime-character","anime-fanart"].includes(mode)){
    entry=await fetchRandomEasyImage(mode);
   }else if(mode==="medium"||mode==="manga-panel"){
@@ -21,6 +21,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
    throw new Error("This event does not have a question provider implemented yet.");
   }
   challengeAnswer=entry.title;
+  if(entry.type!=="media-library")entry.answerMode=preset?.answerMode==="manual"?"manual":"multiple-choice";
   if(entry.type==="media-library"){
    if(typeof mpRoomId==="undefined"||!mpRoomId)throw new Error("Create or join an online room before starting a question.");
    challengeBusy=false;
@@ -84,7 +85,7 @@ document.querySelector("#challenge-next").addEventListener("click",()=>{
 document.querySelector("#challenge-answer-submit").addEventListener("click",async()=>{
  const input=document.querySelector("#challenge-answer-input"),button=document.querySelector("#challenge-answer-submit"),answer=input.value.trim();
  if(!answer){document.querySelector("#challenge-status").textContent="Write an answer before submitting.";return}
- if(!mpChallenge||mpChallenge.type!=="media-library"||mpChallenge.status!=="open"||mpTriviaAnswered())return;
+ if(!mpChallenge||(mpChallenge.answerMode!=="manual"&&mpChallenge.type!=="media-library")||mpChallenge.status!=="open"||mpTriviaAnswered())return;
  button.disabled=true;input.disabled=true;
  try{await mpSubmitTriviaAnswer(answer);input.value="";document.querySelector("#challenge-status").textContent="Answer submitted. It will be revealed when the timer ends."}
  catch(error){button.disabled=false;input.disabled=false;document.querySelector("#challenge-status").textContent="Answer could not be submitted: "+(error.message||error)}
@@ -96,7 +97,8 @@ function mpRenderSharedChallenge(challenge){
  overlay.style.display="flex";
  document.querySelector("#challenge-title").textContent=challenge.type==="media-library"?"Media event":challenge.type==="manga-panel"?"Which manga is this panel from?":"Which anime is this from?";
  const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art","manga-panel":"Manga panel"};
- document.querySelector("#challenge-instructions").textContent=challenge.type==="media-library"?(challenge.scoringNotes||"Watch or listen to the clip. The host judges answers manually; no automatic answer matching."):(typeNames[challenge.type]||"Anime clue")+" event";
+ const manualScoring=challenge.answerMode==="manual"||challenge.type==="media-library";
+ document.querySelector("#challenge-instructions").textContent=challenge.type==="media-library"?(challenge.scoringNotes||"Watch or listen to the clip. The host judges answers manually; no automatic answer matching."):manualScoring?"Identify the clue and submit a text answer. The host will award points after everyone answers or time expires.":(typeNames[challenge.type]||"Anime clue")+" event";
  if(challenge.type==="media-library"){
   const mediaKey=challenge.mediaUrl+":"+String(challenge.startedAt||"");
   if(media.dataset.mediaKey!==mediaKey){
@@ -132,7 +134,7 @@ function mpRenderSharedChallenge(challenge){
  const answerInput=document.querySelector("#challenge-answer-input");
  const answerSubmit=document.querySelector("#challenge-answer-submit");
  const timer=document.querySelector("#challenge-timer");
- if(challenge.type==="media-library"){
+ if(manualScoring){
   answerEntry.style.display=resolved?"none":"block";
   timer.style.display="block";
   answerInput.disabled=alreadyAnswered||resolved;
@@ -182,7 +184,7 @@ function mpRenderSharedChallenge(challenge){
   }else{
    answers.classList.remove("revealed");
    const count=(challenge.answeredUserIds||[]).length;
-   msg.textContent=alreadyAnswered?"Your answer is submitted. Waiting for the timer. ("+count+"/"+players.length+" submitted)":"Write an answer before time runs out. ("+count+"/"+players.length+" submitted)";
+   msg.textContent=alreadyAnswered?"Your answer is submitted. Waiting for the timer. ("+count+"/"+players.length+" submitted)":"Write a text answer before time runs out. ("+count+"/"+players.length+" submitted)";
    next.style.display="none";
   }
  }else{
