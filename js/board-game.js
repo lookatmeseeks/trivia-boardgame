@@ -19,7 +19,7 @@ function buildBoardGraph(requestedSize=boardSize){
    points.push({angle,x:centers[r]+Math.cos(angle)*radius,y:centerY+Math.sin(angle)*radius,ring:r,index:i});
   }
   const a=Math.acos(130/radius);
-  const targetAngles=r===0?[2*Math.PI-a,a]:r===1?[Math.PI+a,Math.PI-a,2*Math.PI-a,a]:[2*Math.PI-a,a];
+  const targetAngles=r===0?[2*Math.PI-a,a]:r===1?[Math.PI+a,Math.PI-a,2*Math.PI-a,a]:[Math.PI+a,Math.PI-a];
   const used=new Set();
   targetAngles.forEach((angle,j)=>{
    let best=-1,bestDelta=Infinity;
