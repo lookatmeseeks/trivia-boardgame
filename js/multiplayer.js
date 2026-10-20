@@ -159,7 +159,7 @@ document.querySelector("#reset").addEventListener("click",()=>{if(mpRoomId&&!mpI
 async function mpStartSharedTrivia(entry,options){
  if(!mpRoomId)return false;
  if(!mpCanAct())throw new Error("Only the active player can start this question.");
- const question={imageUrl:entry.url||"",imageLabel:entry.label,type:entry.type||"media-library",difficulty:entry.difficulty||"",sourceUrl:entry.sourceUrl||"",sourceCredit:entry.sourceCredit||"",mediaUrl:entry.mediaUrl||"",mediaType:entry.mediaType||"",mediaMode:entry.mediaMode||"",durationSeconds:Number(entry.durationSeconds)||15,options};
+ const question={imageUrl:entry.url||"",imageLabel:entry.label,type:entry.type||"media-library",difficulty:entry.difficulty||"",sourceUrl:entry.sourceUrl||"",sourceCredit:entry.sourceCredit||"",mediaUrl:entry.mediaUrl||"",mediaType:entry.mediaType||"",mediaMode:entry.mediaMode||"",durationSeconds:Number(entry.durationSeconds)||15,startedAt:entry.type==="media-library"?Date.now():null,options};
  const base=mpCurrentSnapshot();
  const {data,error}=await mpClient.rpc("start_shared_trivia",{p_code:mpRoomCode,p_state:base,p_question:question,p_answer:entry.title});
  if(error)throw error;
