@@ -1,18 +1,61 @@
-const nodes=[
- {id:0,x:90,y:300,label:"START",type:"start"},
- {id:1,x:170,y:300,label:"1"},{id:2,x:250,y:300,label:"2"},{id:3,x:330,y:300,label:"3"},
- {id:4,x:410,y:300,label:"4"},{id:5,x:490,y:300,label:"5",type:"junction"},
- {id:6,x:570,y:300,label:"6"},{id:7,x:650,y:300,label:"7"},{id:8,x:730,y:300,label:"8"},{id:9,x:810,y:300,label:"GOAL"},
- {id:10,x:250,y:190,label:"A"},{id:11,x:330,y:130,label:"B"},{id:12,x:420,y:145,label:"C"},{id:13,x:490,y:220,label:"13"},
- {id:14,x:650,y:190,label:"E"},{id:15,x:730,y:125,label:"F"},{id:16,x:810,y:190,label:"G"},
- {id:17,x:250,y:410,label:"H"},{id:18,x:330,y:475,label:"I"},{id:19,x:420,y:460,label:"J"},{id:20,x:490,y:380,label:"20"},
- {id:21,x:650,y:410,label:"L"},{id:22,x:730,y:480,label:"22"},{id:23,x:810,y:410,label:"N"}
-];
-const edges=[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],
- [2,10],[10,11],[11,12],[12,13],[13,5],[13,14],[14,15],[15,16],[16,9],
- [2,17],[17,18],[18,19],[19,20],[20,5],[20,21],[21,22],[22,23],[23,9],
- [12,14],[18,21],[15,23]];
-const adjacency={};nodes.forEach(n=>adjacency[n.id]=[]);edges.forEach(([a,b])=>{adjacency[a].push(b);adjacency[b].push(a)});
+let nodes=[],edges=[],adjacency={};
+let boardSize=30;
+function buildBoardGraph(requestedSize=boardSize){
+ boardSize=Math.max(18,Math.min(72,Math.round(Number(requestedSize)||30)));
+ const ringCount=3,totalRingNodes=boardSize+4,base=Math.floor(totalRingNodes/ringCount),extra=totalRingNodes%ringCount;
+ const counts=[base+(extra>0?1:0),base+(extra>1?1:0),base];
+ const radius=150,centerY=300,centers=[190,450,710],sharedByRing=[{}, {}, {}];
+ const sharedAngles=[Math.acos(130/radius),2*Math.PI-Math.acos(130/radius),Math.PI-Math.acos(130/radius),Math.PI+Math.acos(130/radius)];
+ const sharedCoords=[
+  [{x:320,y:centerY-Math.sqrt(radius*radius-130*130)},{x:320,y:centerY+Math.sqrt(radius*radius-130*130)}],
+  [{x:320,y:centerY-Math.sqrt(radius*radius-130*130)},{x:320,y:centerY+Math.sqrt(radius*radius-130*130)},{x:580,y:centerY-Math.sqrt(radius*radius-130*130)},{x:580,y:centerY+Math.sqrt(radius*radius-130*130)}],
+  [{x:580,y:centerY-Math.sqrt(radius*radius-130*130)},{x:580,y:centerY+Math.sqrt(radius*radius-130*130)}]
+ ];
+ const ringPoints=[];
+ for(let r=0;r<ringCount;r++){
+  const points=[];
+  for(let i=0;i<counts[r];i++){
+   const angle=-Math.PI/2+(2*Math.PI*i/counts[r]);
+   points.push({angle,x:centers[r]+Math.cos(angle)*radius,y:centerY+Math.sin(angle)*radius,ring:r,index:i});
+  }
+  const targetAngles=r===0?[Math.acos(130/radius),2*Math.PI-Math.acos(130/radius)]:r===1?[Math.PI-Math.acos(130/radius),Math.PI+Math.acos(130/radius),Math.acos(130/radius),2*Math.PI-Math.acos(130/radius)]:[Math.PI-Math.acos(130/radius),Math.PI+Math.acos(130/radius)];
+  const used=new Set();
+  targetAngles.forEach((angle,j)=>{
+   let best=-1,bestDelta=Infinity;
+   points.forEach((p,i)=>{if(used.has(i))return;let d=Math.abs(p.angle-angle);d=Math.min(d,2*Math.PI-d);if(d<bestDelta){bestDelta=d;best=i}});
+   if(best>=0){used.add(best);const coord=sharedCoords[r][j];points[best].x=coord.x;points[best].y=coord.y;points[best].sharedKey=(r===0?"L":r===2?"R":j<2?"L":"R")+":"+j%2}
+  });
+  ringPoints.push(points.sort((a,b)=>a.angle-b.angle));
+ }
+ nodes=[];edges=[];adjacency={};
+ const idByKey=new Map();let nextId=0;
+ ringPoints.forEach((points,r)=>{
+  const ids=[];
+  points.forEach(p=>{
+   let key=p.sharedKey;
+   if(key&&r===1)key=(p.x<450?"L:":"R:")+(Math.round(p.y)<300?"0":"1");
+   if(key&&r!==1)key=(r===0?"L:":"R:")+(Math.round(p.y)<300?"0":"1");
+   let id=key&&idByKey.has(key)?idByKey.get(key):nextId++;
+   if(key&&!idByKey.has(key))idByKey.set(key,id);
+   if(!nodes.some(n=>n.id===id))nodes.push({id,x:p.x,y:p.y,label:String(id+1),ring:r});
+   ids.push(id);
+  });
+  for(let i=0;i<ids.length;i++){const a=ids[i],b=ids[(i+1)%ids.length];if(a!==b&&!edges.some(e=>(e[0]===a&&e[1]===b)||(e[0]===b&&e[1]===a)))edges.push([a,b])}
+ });
+ const starts=[];
+ ringPoints.forEach((points,r)=>points.forEach(p=>{
+  if(p.sharedKey)return;
+  const step=Math.max(2,Math.floor(counts[r]/3));
+  if(p.index%step===0)starts.push(nodes.find(n=>Math.abs(n.x-p.x)<0.01&&Math.abs(n.y-p.y)<0.01)?.id);
+ }));
+ const uniqueStarts=[...new Set(starts.filter(Number.isInteger))];
+ nodes.forEach(n=>{if(uniqueStarts.includes(n.id))n.type="start"});
+ edges.forEach(([a,b])=>{(adjacency[a]||(adjacency[a]=[])).push(b);(adjacency[b]||(adjacency[b]=[])).push(a)});
+ nodes.sort((a,b)=>a.id-b.id);
+ return {nodes,edges,adjacency,starts:uniqueStarts};
+}
+let startNodeIds=[];
+({nodes,edges,adjacency,startNodeIds}=(()=>{const graph=(()=>{buildBoardGraph(boardSize);return {nodes,edges,adjacency,starts:nodes.filter(n=>n.type==="start").map(n=>n.id)}})();return graph})());
 const colors=["#ff5da8","#66e3ef","#ffd166","#a78bfa"];
 let players=[],current=0,remaining=0,moving=false,turnStarted=false,gameOver=false,challengeResolved=false,challengeBusy=false,challengeAnswer="";
 const svg=document.querySelector("#board"),statusEl=document.querySelector("#status"),choicesEl=document.querySelector("#choices");
@@ -39,15 +82,16 @@ function canEditBoard(){return setupMode&&(!mpRoomId||mpIsHost)&&(!mpRoomId||mpR
 function updateSetupUI(){
  const panel=document.querySelector("#host-setup");if(!panel)return;
  const editable=!mpRoomId||mpIsHost;panel.style.display=editable?"block":"none";
- document.querySelector("#add-round").style.display=mpRoomId?(mpIsHost&&mpRoomStatus==="playing"?"block":"none"):(setupMode?"none":"block");
+ document.querySelector("#add-round").style.display="none";
  document.querySelector("#round-limit").disabled=!canEditBoard();
+ const boardSizeInput=document.querySelector("#board-size");if(boardSizeInput){boardSizeInput.disabled=!canEditBoard();boardSizeInput.value=boardSize;}
  ["randomize-board","clear-board","preset-name","preset-color","preset-answer-mode","preset-media-mode","preset-clip-duration","preset-scoring-notes","preset-save","preset-cancel"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
  document.querySelector("#round-limit").value=roundLimit;
  const authorInput=document.querySelector("#medium-author-search"),searchButton=document.querySelector("#medium-author-search-button");if(authorInput)authorInput.disabled=!canEditBoard();if(searchButton)searchButton.disabled=!canEditBoard();renderMediumAuthorSelections();renderPresetEditor();
  document.querySelector("#setup-status").textContent=setupMode?"Create presets, choose their events, then assign presets to board tiles.":"Round "+Math.min(roundsCompleted+1,roundLimit)+" of "+roundLimit+" · "+roundsCompleted+" completed.";
 }
-function handleBoardNodeClick(id){if(!canEditBoard()||id===0||id===9)return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Create a preset with at least one event first.";return}const currentId=tileTypes[id],index=allowed.indexOf(currentId);if(index<0)tileTypes[id]=allowed[0];else if(index===allowed.length-1)delete tileTypes[id];else tileTypes[id]=allowed[index+1];renderBoard();if(typeof mpStateChanged==="function")mpStateChanged()}
-function randomizeBoard(){if(!canEditBoard())return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Create a preset with at least one event first.";return}tileTypes={};nodes.filter(n=>n.id!==0&&n.id!==9).forEach(n=>{tileTypes[n.id]=allowed[Math.floor(Math.random()*allowed.length)]});renderBoard();if(typeof mpStateChanged==="function")mpStateChanged();document.querySelector("#setup-status").textContent="Presets randomly distributed. Click nodes to cycle through them."}
+function handleBoardNodeClick(id){if(!canEditBoard())return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Create a preset with at least one event first.";return}const currentId=tileTypes[id],index=allowed.indexOf(currentId);if(index<0)tileTypes[id]=allowed[0];else if(index===allowed.length-1)delete tileTypes[id];else tileTypes[id]=allowed[index+1];renderBoard();if(typeof mpStateChanged==="function")mpStateChanged()}
+function randomizeBoard(){if(!canEditBoard())return;const allowed=allowedTileTypes();if(!allowed.length){document.querySelector("#setup-status").textContent="Create a preset with at least one event first.";return}tileTypes={};nodes.forEach(n=>{tileTypes[n.id]=allowed[Math.floor(Math.random()*allowed.length)]});renderBoard();if(typeof mpStateChanged==="function")mpStateChanged();document.querySelector("#setup-status").textContent="Presets randomly distributed. Click nodes to cycle through them."}
 function clearBoardTiles(){if(!canEditBoard())return;tileTypes={};renderBoard();if(typeof mpStateChanged==="function")mpStateChanged();document.querySelector("#setup-status").textContent="All tiles cleared."}
 function renderPresetEditor(){
  const list=document.querySelector("#preset-list"),eventsEl=document.querySelector("#preset-events"),save=document.querySelector("#preset-save"),nameInput=document.querySelector("#preset-name"),colorInput=document.querySelector("#preset-color");
@@ -100,7 +144,7 @@ function savePreset(){
  document.querySelector("#setup-status").textContent="Preset saved. Click a board node to assign it.";
 }
 document.querySelector("#preset-save").addEventListener("click",savePreset);
-document.querySelector("#round-limit").addEventListener("change",()=>{if(!canEditBoard())return;roundLimit=Math.max(1,Math.min(50,Number.parseInt(document.querySelector("#round-limit").value,10)||5));document.querySelector("#round-limit").value=roundLimit;updateSetupUI();if(typeof mpStateChanged==="function")mpStateChanged()});
+document.querySelector("#round-limit").addEventListener("change",()=>{if(!canEditBoard())return;roundLimit=Math.max(1,Math.min(50,Number.parseInt(document.querySelector("#round-limit").value,10)||5));document.querySelector("#round-limit").value=roundLimit;updateSetupUI();if(typeof mpStateChanged==="function")mpStateChanged()});\ndocument.querySelector("#board-size").addEventListener("change",()=>{if(!canEditBoard())return;boardSize=Math.max(18,Math.min(72,Number.parseInt(document.querySelector("#board-size").value,10)||30));buildBoardGraph(boardSize);tileTypes={};players.forEach((p,i)=>{const starts=nodes.filter(n=>n.type==="start");p.pos=starts[i%starts.length]?.id??0;p.previous=null});renderBoard();updateUI();updateSetupUI();document.querySelector("#setup-status").textContent="Board size changed to "+boardSize+" tiles. Tile assignments were cleared for the new layout.";if(typeof mpStateChanged==="function")mpStateChanged()});
 document.querySelector("#preset-cancel").addEventListener("click",clearPresetForm);
 function node(id){return nodes.find(n=>n.id===id)}
 function renderBoard(){
@@ -170,8 +214,7 @@ function chooseRoute(id){
 }
 function finishTurn(){
  remaining=0;moving=false;choicesEl.innerHTML="";
- const p=players[current],landed=node(p.pos);
- const preset=getTilePreset(tileTypes[p.pos]);
+ const p=players[current],landed=node(p.pos),preset=getTilePreset(tileTypes[p.pos]);
  if(preset&&!challengeResolved){
   const possible=preset.events.filter(id=>getTileEventDefinition(id));
   const eventId=possible[Math.floor(Math.random()*possible.length)];
@@ -179,21 +222,27 @@ function finishTurn(){
   if(event&&event.kind==="question"&&event.implemented){startTriviaChallenge(eventId,preset);return}
   challengeResolved=false;
   const detail=event?(event.implemented?event.name:event.name+" is selected, but its gameplay has not been implemented yet."):"This preset has no valid events.";
-  if(p.pos===9){gameOver=true;setStatus(p.name+" reached the goal! Final scores: "+players.map(x=>x.name+" "+x.score).join(", ")+". Restart to play again.");document.querySelector("#roll").disabled=true;updateUI();return}
-  current=(current+1)%players.length;
-  if(current===0){roundsCompleted++;if(roundsCompleted>=roundLimit){gameOver=true;setStatus("Round limit reached. Final scores: "+players.map(x=>x.name+" "+x.score).join(", ")+". The host can add a round to continue.");updateUI();return}}
-  setStatus(p.name+" landed on "+preset.name+": "+detail+" Next up: "+players[current].name+".");
-  updateUI();document.querySelector("#turn-note").textContent="Ready to roll";return;
+  setStatus(p.name+" landed on "+preset.name+": "+detail);
+ }else{
+  challengeResolved=false;
+  setStatus(p.name+" finished their move on tile "+landed.label+".");
  }
- challengeResolved=false;
- let result=p.name+" finished their move on "+landed.label+".";
- if(p.pos===9){gameOver=true;setStatus(p.name+" reached the goal! Final scores: "+players.map(x=>x.name+" "+x.score).join(", ")+". Restart to play again.");document.querySelector("#roll").disabled=true;updateUI();return}
  current=(current+1)%players.length;
- if(current===0){roundsCompleted++;if(roundsCompleted>=roundLimit){gameOver=true;setStatus("Round limit reached. Final scores: "+players.map(x=>x.name+" "+x.score).join(", ")+". The host can add a round to continue.");updateUI();return}}
- setStatus(result+" Next up: "+players[current].name+".");
- updateUI();document.querySelector("#turn-note").textContent="Ready to roll";
+ if(current===0){
+  roundsCompleted++;
+  if(roundsCompleted>=roundLimit){
+   gameOver=true;
+   const highScore=Math.max(...players.map(player=>player.score));
+   const winners=players.filter(player=>player.score===highScore).map(player=>player.name);
+   const result=winners.length===1?"Winner: "+winners[0]+" with "+highScore+" points.":"Tie: "+winners.join(" and ")+" with "+highScore+" points each.";
+   setStatus("All "+roundLimit+" rounds are over. "+result+" Final scores: "+players.map(player=>player.name+" "+player.score).join(", ")+".");
+   document.querySelector("#roll").disabled=true;updateUI();updateSetupUI();return;
+  }
+ }
+ setStatus((statusEl.textContent||p.name+" finished their turn.")+" Next up: "+players[current].name+".");
+ updateUI();updateSetupUI();document.querySelector("#turn-note").textContent="Ready to roll";
 }
-function resetGame(){if(typeof mpRoomId!=="undefined"&&mpRoomId&&!mpIsHost)return;document.querySelector("#challenge-overlay").style.display="none";players=(typeof mpRoomId!=="undefined"&&mpRoomId&&Array.isArray(mpPlayerRows)&&mpPlayerRows.length?mpPlayerRows.map(p=>({name:p.player_name,pos:0,previous:null,score:0,userId:p.user_id})):[{name:"Player 1",pos:0,previous:null,score:0},{name:"Player 2",pos:0,previous:null,score:0},{name:"Player 3",pos:0,previous:null,score:0},{name:"Player 4",pos:0,previous:null,score:0}]);current=0;remaining=0;moving=false;gameOver=false;challengeResolved=false;challengeBusy=false;roundsCompleted=0;setupMode=!mpRoomId||mpRoomStatus==="lobby";document.querySelector("#die").textContent="—";renderBoard();startTurn();updateSetupUI()}
+function resetGame(){if(typeof mpRoomId!=="undefined"&&mpRoomId&&!mpIsHost)return;document.querySelector("#challenge-overlay").style.display="none";players=(typeof mpRoomId!=="undefined"&&mpRoomId&&Array.isArray(mpPlayerRows)&&mpPlayerRows.length?mpPlayerRows.map(p=>({name:p.player_name,pos:0,previous:null,score:0,userId:p.user_id})):[{name:"Player 1",pos:0,previous:null,score:0},{name:"Player 2",pos:0,previous:null,score:0},{name:"Player 3",pos:0,previous:null,score:0},{name:"Player 4",pos:0,previous:null,score:0}]);\n const availableStarts=nodes.filter(n=>n.type==="start").map(n=>n.id);players.forEach((player,i)=>{const choices=availableStarts.filter(id=>!players.some((other,j)=>j<i&&other.pos===id));player.pos=choices.length?choices[Math.floor(Math.random()*choices.length)]:availableStarts[i%availableStarts.length];player.previous=null});current=0;remaining=0;moving=false;gameOver=false;challengeResolved=false;challengeBusy=false;roundsCompleted=0;setupMode=!mpRoomId||mpRoomStatus==="lobby";document.querySelector("#die").textContent="—";renderBoard();startTurn();updateSetupUI()}
 
 document.querySelector("#roll").addEventListener("click",roll);document.querySelector("#reset").addEventListener("click",resetGame);
 resetGame();
@@ -234,6 +283,6 @@ async function searchMediumAuthors(){
 document.querySelector("#medium-author-search-button").addEventListener("click",searchMediumAuthors);
 document.querySelector("#medium-author-search").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();searchMediumAuthors()}});
 
-document.querySelector("#add-round").addEventListener("click",()=>{if(mpRoomId&&!mpIsHost)return;roundLimit=Math.min(50,roundLimit+1);gameOver=false;updateSetupUI();updateUI();setStatus("The host added a round. "+roundLimit+" rounds are now available.");if(typeof mpStateChanged==="function")mpStateChanged()});
+
 renderPresetEditor();
 
