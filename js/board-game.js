@@ -23,6 +23,7 @@ const tileEvents=[
  {id:"anime-character",name:"Anime character",kind:"question",implemented:true},
  {id:"anime-fanart",name:"Anime fan art",kind:"question",implemented:true},
  {id:"manga-panel",name:"Manga panel",kind:"question",implemented:true},
+ {id:"media-library",name:"Shared media library",kind:"question",implemented:true},
  {id:"soundtrack-clip",name:"Soundtrack clip (audio only)",kind:"question",implemented:false},
  {id:"opening-clip",name:"Opening clip (audio + video)",kind:"question",implemented:false},
  {id:"manga-character",name:"Manga character",kind:"question",implemented:false},
@@ -40,7 +41,7 @@ function updateSetupUI(){
  const editable=!mpRoomId||mpIsHost;panel.style.display=editable?"block":"none";
  document.querySelector("#add-round").style.display=mpRoomId?(mpIsHost&&mpRoomStatus==="playing"?"block":"none"):(setupMode?"none":"block");
  document.querySelector("#round-limit").disabled=!canEditBoard();
- ["randomize-board","clear-board","preset-name","preset-color","preset-save","preset-cancel"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
+ ["randomize-board","clear-board","preset-name","preset-color","preset-media-mode","preset-clip-duration","preset-save","preset-cancel"].forEach(id=>{const el=document.querySelector("#"+id);if(el)el.disabled=!canEditBoard()});
  document.querySelector("#round-limit").value=roundLimit;
  const authorInput=document.querySelector("#medium-author-search"),searchButton=document.querySelector("#medium-author-search-button");if(authorInput)authorInput.disabled=!canEditBoard();if(searchButton)searchButton.disabled=!canEditBoard();renderMediumAuthorSelections();renderPresetEditor();
  document.querySelector("#setup-status").textContent=setupMode?"Create presets, choose their events, then assign presets to board tiles.":"Round "+Math.min(roundsCompleted+1,roundLimit)+" of "+roundLimit+" · "+roundsCompleted+" completed.";
@@ -74,22 +75,24 @@ function renderPresetEditor(){
  if(save)save.textContent=editingPresetId?"Update preset":"Save preset";
  if(nameInput)nameInput.disabled=!canEditBoard();if(colorInput)colorInput.disabled=!canEditBoard();
 }
-function clearPresetForm(){editingPresetId=null;document.querySelector("#preset-name").value="";document.querySelector("#preset-color").value="#69df9b";document.querySelectorAll("[data-preset-event]").forEach(el=>el.checked=false);renderPresetEditor()}
+function clearPresetForm(){editingPresetId=null;document.querySelector("#preset-name").value="";document.querySelector("#preset-color").value="#69df9b";document.querySelector("#preset-media-mode").value="video";document.querySelector("#preset-clip-duration").value="15";document.querySelectorAll("[data-preset-event]").forEach(el=>el.checked=false);renderPresetEditor()}
 function loadPresetForEdit(id){
  const preset=getTilePreset(id);if(!preset)return;editingPresetId=id;
- document.querySelector("#preset-name").value=preset.name;document.querySelector("#preset-color").value=preset.color;
+ document.querySelector("#preset-name").value=preset.name;document.querySelector("#preset-color").value=preset.color;document.querySelector("#preset-media-mode").value=preset.mediaMode||"video";document.querySelector("#preset-clip-duration").value=String(preset.clipDuration||15);
  document.querySelectorAll("[data-preset-event]").forEach(el=>el.checked=preset.events.includes(el.value));
  document.querySelector("#preset-save").textContent="Update preset";
 }
 function savePreset(){
  if(!canEditBoard())return;
  const name=document.querySelector("#preset-name").value.trim(),color=document.querySelector("#preset-color").value;
+ const mediaMode=document.querySelector("#preset-media-mode").value;
+ const clipDuration=Math.max(3,Math.min(60,Number.parseInt(document.querySelector("#preset-clip-duration").value,10)||15));
  const events=[...document.querySelectorAll("[data-preset-event]:checked")].map(el=>el.value);
  if(!name){document.querySelector("#setup-status").textContent="Give the preset a name.";return}
  if(!events.length){document.querySelector("#setup-status").textContent="Select at least one event for this preset.";return}
  if(tilePresets.some(p=>p.name.toLowerCase()===name.toLowerCase()&&p.id!==editingPresetId)){document.querySelector("#setup-status").textContent="Preset names must be unique.";return}
- if(editingPresetId){const preset=getTilePreset(editingPresetId);if(preset)Object.assign(preset,{name,color,events})}
- else tilePresets.push({id:"preset-"+(presetSequence++),name,color,events});
+ if(editingPresetId){const preset=getTilePreset(editingPresetId);if(preset)Object.assign(preset,{name,color,events,mediaMode,clipDuration})}
+ else tilePresets.push({id:"preset-"+(presetSequence++),name,color,events,mediaMode,clipDuration});
  clearPresetForm();renderBoard();if(typeof mpStateChanged==="function")mpStateChanged();
  document.querySelector("#setup-status").textContent="Preset saved. Click a board node to assign it.";
 }
@@ -169,7 +172,7 @@ function finishTurn(){
   const possible=preset.events.filter(id=>getTileEventDefinition(id));
   const eventId=possible[Math.floor(Math.random()*possible.length)];
   const event=getTileEventDefinition(eventId);
-  if(event&&event.kind==="question"&&event.implemented){startTriviaChallenge(eventId);return}
+  if(event&&event.kind==="question"&&event.implemented){startTriviaChallenge(eventId,preset);return}
   challengeResolved=false;
   const detail=event?(event.implemented?event.name:event.name+" is selected, but its gameplay has not been implemented yet."):"This preset has no valid events.";
   if(p.pos===9){gameOver=true;setStatus(p.name+" reached the goal! Final scores: "+players.map(x=>x.name+" "+x.score).join(", ")+". Restart to play again.");document.querySelector("#roll").disabled=true;updateUI();return}
