@@ -6,7 +6,7 @@ async function startTriviaChallenge(mode=document.querySelector("#challenge-mode
   if(mode==="media-library"){
    if(typeof mediaLibraryRefresh!=="function")throw new Error("The shared media library is not loaded.");
    await mediaLibraryRefresh();
-   const mediaMode=preset?.mediaMode||"video";
+   const mediaMode=preset?.mediaMode==="audio"?"audio":"video";
    const wantedType=mediaMode==="audio"?"audio":"video";
    const candidates=mediaLibraryItems.filter(item=>item.media_type===wantedType);
    if(!candidates.length)throw new Error("The global library has no "+wantedType+" items. Upload one first.");
