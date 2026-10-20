@@ -82,8 +82,9 @@ function mpRenderSharedChallenge(challenge){
  const typeNames={cover:"Anime cover",character:"Anime character",fanart:"Anime fan art","manga-panel":"Manga panel"};
  document.querySelector("#challenge-instructions").textContent=challenge.type==="media-library"?"Watch or listen to the clip, then choose the correct answer.":(typeNames[challenge.type]||"Anime clue")+" event";
  if(challenge.type==="media-library"){
-  if(media.dataset.mediaUrl!==challenge.mediaUrl){
-   media.dataset.mediaUrl=challenge.mediaUrl;media.dataset.imageUrl="";media.innerHTML="";
+  const mediaKey=challenge.mediaUrl+":"+String(challenge.startedAt||"");
+  if(media.dataset.mediaKey!==mediaKey){
+   media.dataset.mediaKey=mediaKey;media.dataset.mediaUrl=challenge.mediaUrl;media.dataset.imageUrl="";media.innerHTML="";
    let player;
    if(challenge.mediaMode==="still"){
     player=document.createElement("video");player.muted=true;player.playsInline=true;player.preload="auto";player.src=challenge.mediaUrl;player.controls=false;player.style.cssText="width:100%;max-height:360px;object-fit:contain";
