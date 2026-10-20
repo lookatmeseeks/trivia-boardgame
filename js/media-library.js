@@ -108,18 +108,19 @@ async function mediaLibraryUpload() {
   const id = crypto.randomUUID();
   const extension = (file.name.split(".").pop() || "bin").replace(/[^a-zA-Z0-9]/g, "").slice(0, 10) || "bin";
   const path = id + "." + extension;
+  const mediaType = file.type.startsWith("audio/") || /\.(mp3|wav|ogg|aac|m4a|flac)$/i.test(file.name) ? "audio" : "video";
+  const mimeType = file.type || (mediaType === "audio" ? "audio/mpeg" : "video/mp4");
   try {
     await mpEnsureClient();
     const { error: uploadError } = await mpClient.storage.from(MEDIA_BUCKET).upload(path, file, {
-      contentType: file.type || (file.type.startsWith("audio/") ? "audio/mpeg" : "video/mp4"),
+      contentType: mimeType,
       cacheControl: "3600",
       upsert: false
     });
     if (uploadError) throw uploadError;
-    const mediaType = file.type.startsWith("audio/") ? "audio" : "video";
     const { error: rowError } = await mpClient.from("media_library").insert({
       id, title, answer, media_type: mediaType, storage_path: path,
-      mime_type: file.type || "application/octet-stream", size_bytes: file.size,
+      mime_type: mimeType, size_bytes: file.size,
       created_by: mpUserId
     });
     if (rowError) {
