@@ -98,6 +98,7 @@ function savePreset(){
  document.querySelector("#setup-status").textContent="Preset saved. Click a board node to assign it.";
 }
 document.querySelector("#preset-save").addEventListener("click",savePreset);
+document.querySelector("#round-limit").addEventListener("change",()=>{if(!canEditBoard())return;roundLimit=Math.max(1,Math.min(50,Number.parseInt(document.querySelector("#round-limit").value,10)||5));document.querySelector("#round-limit").value=roundLimit;updateSetupUI();if(typeof mpStateChanged==="function")mpStateChanged()});
 document.querySelector("#preset-cancel").addEventListener("click",clearPresetForm);
 function node(id){return nodes.find(n=>n.id===id)}
 function renderBoard(){
